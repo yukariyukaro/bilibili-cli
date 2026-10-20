@@ -1,18 +1,16 @@
 {
-  "name": "bilibili-cli",
-  "version": "0.1.5",
+  "name": "bilibili-cli-repo",
+  "version": "1.0.0",
   "private": true,
-  "description": "自包含的 B 站研究、扫码登录与显式确认评论 CLI 技能",
+  "description": "独立 B 站 CLI 与 Skill 的仓库包装；产品源码位于 skills/bilibili-cli",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "build": "node skills/bilibili-cli/scripts/build.mjs",
+    "test": "node skills/bilibili-cli/scripts/verify.mjs",
+    "pack:cli": "npm --prefix skills/bilibili-cli pack"
+  },
   "engines": {
     "node": ">=22"
-  },
-  "scripts": {
-    "test": "node scripts/verify.mjs"
-  },
-  "dependencies": {
-    "commander": "^14.0.3",
-    "execa": "^9.6.1"
   }
 }

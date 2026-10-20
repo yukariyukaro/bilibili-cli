@@ -8,15 +8,15 @@
  *      data.code：86101 未扫 / 86090 已扫待确认 / 0 成功 / 86038 过期
  *   ③ ⭐ **凭证在轮询响应的 `Set-Cookie` 头里**（成功时那条 `data.url` 里没有 SESSDATA，
  *      那是别的域的游戏票 —— 别在 url 里找）
- *   ④ 写成 MCP 认识的四个字段：sessdata / bili_jct / buvid3 / dedeuserid
+ *   ④ 写成后端认识的四个字段：sessdata / bili_jct / buvid3 / dedeuserid
  *
- * 二维码图片：交给 venv 里的 Python `qrcode` 画（ASCII 的 URL，走 `-c` 安全；
- * 没装就退回"只给 URL"，前端会提示先跑「建 venv 装依赖」）。
+ * 二维码图片：由 npm 依赖 `qrcode` 直接生成 PNG（无外部进程、无需 Python）；
+ * 生成失败时退回"只给 URL"，不影响扫码流程。
  * ============================================================================
  */
-import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import QRCode from 'qrcode'
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
 const GEN = 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header'
@@ -42,7 +42,7 @@ function pickCookies(list) {
 async function ensureBuvid3(jar) {
   if (jar.buvid3) return jar
   try {
-    const r = await fetch(SPI, { headers: { 'User-Agent': UA } })
+    const r = await fetch(SPI, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
     const j = await r.json()
     const v = j?.data?.b_3
     if (v) jar.buvid3 = v
@@ -51,7 +51,7 @@ async function ensureBuvid3(jar) {
 }
 
 export async function loginStart() {
-  const r = await fetch(GEN, { headers: { 'User-Agent': UA } })
+  const r = await fetch(GEN, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) })
   const j = await r.json()
   const data = j?.data
   if (!data?.qrcode_key || !data?.url) throw new Error(`生成二维码失败：${j?.message || '返回里没有 qrcode_key'}`)
@@ -60,7 +60,7 @@ export async function loginStart() {
 
 /** 轮询一次。state: waiting / scanned / ok / expired / unknown */
 export async function loginPoll(key) {
-  const res = await fetch(pollUrl(key), { headers: { 'User-Agent': UA }, redirect: 'manual' })
+  const res = await fetch(pollUrl(key), { headers: { 'User-Agent': UA }, redirect: 'manual', signal: AbortSignal.timeout(30000) })
   const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : []
   let body = {}
   try { body = await res.json() } catch { /* poll 有时返回空体 */ }
@@ -74,7 +74,7 @@ export async function loginPoll(key) {
   return { state: map[code] ?? 'unknown', code, message: body?.message || '' }
 }
 
-/** 把凭证写进 MCP 读的那个文件（家目录里的 bili_credential.json） */
+/** 把凭证写进后端读取的那个文件（家目录里的 bili_credential.json） */
 export function saveCredential(stateDir, credential) {
   mkdirSync(stateDir, { recursive: true })
   const file = join(stateDir, 'bili_credential.json')
@@ -83,21 +83,17 @@ export function saveCredential(stateDir, credential) {
     bili_jct: credential.bili_jct ?? '',
     buvid3: credential.buvid3 || '',
     dedeuserid: credential.dedeuserid ?? '',
-  }, null, 2), 'utf8')
+  }, null, 2), { encoding: 'utf8', mode: 0o600 })
   return file
 }
 
-/** 用 Python 的 qrcode 画一张 PNG，返回 base64（拿不到就返回 null） */
-export function renderQrPng(pythonPath, stateDir, url) {
-  return new Promise((resolve) => {
+/** 用纯 JS 的 qrcode 生成登录二维码 PNG；失败时返回 null，不影响 URL 展示 */
+export async function renderQrPng(stateDir, url) {
+  try {
     const png = join(stateDir, 'qrcode_login.png')
-    const code = 'import sys, qrcode; qrcode.make(sys.argv[1]).save(sys.argv[2])'
-    let child
-    try {
-      child = spawn(pythonPath || 'python', ['-c', code, url, png], { cwd: stateDir, windowsHide: true })
-    } catch { return resolve(null) }
-    const done = () => { try { resolve(existsSync(png) ? png : null) } catch { resolve(null) } }
-    child.on('exit', (c) => { if (c === 0) done(); else resolve(null) })
-    child.on('error', () => resolve(null))
-  })
+    await QRCode.toFile(png, url, { width: 360, margin: 1 })
+    return png
+  } catch {
+    return null
+  }
 }

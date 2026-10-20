@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 AGI_Ananas
+Copyright (c) 2026 dsh-bili-duty contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---------------------------------------------------------------------------
+
+本 CLI 通过 npm 依赖使用第三方代码，不复制其源码：
+  · @yukariyukaro/bilibili-api-ts：GPL-3.0-or-later，bilibili-api-python 17.4.1 的 TypeScript 移植
+  · commander：MIT
+  · qrcode：MIT
+依赖的完整版权与许可文本随对应 npm 包分发。分发时须保留原版权声明和第三方完整许可；重命名不改变原作者署名。

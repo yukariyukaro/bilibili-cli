@@ -1,9 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const root = fileURLToPath(new URL('..', import.meta.url))
 
 export function stateDir() {
   const custom = process.env.BILIBILI_SKILL_HOME
@@ -24,13 +21,6 @@ export function readJson(file, fallback = {}) {
 export function writeJson(file, value) {
   mkdirSync(join(file, '..'), { recursive: true })
   writeFileSync(file, JSON.stringify(value, null, 2) + '\n', 'utf8')
-}
-
-export function ensurePortableFiles(dir) {
-  const source = join(root, 'vendor', 'bilibili-mcp', 'mcp_server.py')
-  const target = join(dir, 'mcp_server.py')
-  if (existsSync(source) && (!existsSync(target) || readFileSync(source, 'utf8') !== readFileSync(target, 'utf8'))) copyFileSync(source, target)
-  return target
 }
 
 export function credentialFile(dir) {
