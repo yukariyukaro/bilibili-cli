@@ -7,9 +7,11 @@ description: 使用独立 bilibili 1.x 命令搜索 B 站、读取字幕评论�
 
 ## 安装与发现
 
-本技能只提供指导，不携带另一套 CLI。需要 Node.js 22+ 与独立 `bilibili-cli` 1.x 安装产物。安装用户提供或从可信发布渠道取得的压缩包：`npm install --global "压缩包绝对路径"`，然后调用 `bilibili --version`、`bilibili --help`、`bilibili schema --json`。CLI 本体的公共 npm 包名是否可用尚未核实（API 依赖包 @yukariyukaro/bilibili-api-ts 已发布），不要安装未经核实的同名包，不再拼接 Node 或包内脚本路径，也不依赖 DSH。
+需要 Node.js 22+。技能目录如果自带 `cli/bili.mjs`（skills.sh 安装即如此），先在该目录执行 `npm ci`，再通过 `node "<技能目录>/cli/bili.mjs" ...` 调用；也可以执行 `npm install --global "<技能目录>"` 安装 `bilibili` 命令。若已有全局 `bilibili`，直接使用即可。不要安装未经核实的同名 npm 包，不依赖 DSH。
 
-B 站接口由 CLI 的 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供，随包安装，无需 Python 或额外运行时。离线检查使用 `bilibili doctor --json`；完整契约见 [CLI 契约](references/cli-contract.md)。
+B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（已发布到公共 npm），随 CLI 安装，无需 Python 或额外运行时。离线检查使用 `bilibili doctor --json`（技能目录自带 CLI 时用 `node "<技能目录>/cli/bili.mjs" doctor --json`）；完整契约见 [CLI 契约](references/cli-contract.md)。
+
+下文用 `bilibili` 表示命令入口；技能目录自带 CLI 时，可用 `node "<技能目录>/cli/bili.mjs"` 替代。
 
 ## 登录与研究
 
