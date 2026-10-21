@@ -102,3 +102,9 @@ npm run pack:cli
 ## 许可
 
 CLI 本体为 MIT。B 站接口实现来自 [`@yukariyukaro/bilibili-api-ts`](https://github.com/yukariyukaro/bilibili-api-ts)（基于 [Nemo2011/bilibili-api](https://github.com/Nemo2011/bilibili-api) 的 Python 版移植），该依赖以 GPL-3.0-or-later 发布，许可文本见其包内 LICENSE。
+
+## 社区讨论：AI 评论区互动
+
+本项目维护者另建了一个非官方的[鲸鱼娘 B站评论区匿名投票](https://whale-vote.pages.dev/)，收集用户对 DeepSeek 鲸鱼娘（蓝色大肥鱼）借助 DSH 等工具在评论区互动的感受。投票页也提供 B站官方反馈论坛入口，支持与反对这种玩法的用户都可表达意见。
+
+该投票不是 B站、DeepSeek 或本 CLI 的官方调查，不代表全站民意；无需登录，浏览器与网络去重存在共用出口误伤等限制，详见[投票规则与隐私说明](https://whale-vote.pages.dev/about)。参与与否不影响 CLI 的使用。
