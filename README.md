@@ -16,15 +16,9 @@
 
 ## 安装
 
-先检查 `bilibili --version`。若命令不可用，告知用户并取得同意后安装官方 CLI：
+先检查 `bilibili --version`。若命令不可用，告知用户并取得同意后全局安装官方 CLI；安装命令与核验步骤见 [CLI 契约](skills/bilibili-cli/references/cli-contract.md#安装与运行)。
 
-```bash
-npm install -g @yukariyukaro/bilibili-cli@^1
-bilibili --version
-bilibili doctor --json
-```
-
-安装后直接使用 PATH 上的 `bilibili` 命令。不同意全局安装或安装失败时，不要自动切换到 npx；说明 CLI 依赖尚未满足。只使用官方包名，不静默安装或升级。
+安装后直接使用 PATH 上的 `bilibili` 命令。不同意全局安装或安装失败时，不要自动切换到 npx；说明 CLI 依赖尚未满足。只使用官方包名，不静默安装或升级。`doctor` 会同时给出 CLI 版本与 Skill 文档版本。
 
 安装 Agent Skill：
 
@@ -37,7 +31,7 @@ npx skills add yukariyukaro/bilibili-cli --skill bilibili-cli
 ## 快速开始
 
 ```bash
-bilibili doctor --json                                  # Node、状态目录、依赖与凭证自检
+bilibili doctor --json                                  # Node、状态目录、依赖、Skill 版本与凭证自检
 bilibili auth status --json
 bilibili auth login start --json                        # 把二维码或 URL 交给用户扫码
 bilibili auth login poll --key KEY --json               # 单次轮询，直到 state 为 ok
@@ -87,6 +81,8 @@ npm run build         # 生成独立发布目录（默认 <Git 根>/release/bili
 ```
 
 根目录的 `package.json` 只是快捷入口：`npm test`、`npm run build`、`npm run pack:cli` 都会转发到 `packages/bilibili-cli`。
+
+`npm test` 默认验证交付链与离线 bridge（构建、pack、临时安装、PATH 调用、本地控制面），**不访问 B 站网络**；真实只读回归需要显式设置 `BILIBILI_E2E=1` 并先完成登录，真实写保持人工逐次确认。
 
 ## 文档
 

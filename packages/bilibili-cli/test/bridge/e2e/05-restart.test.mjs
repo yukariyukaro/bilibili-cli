@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDir, installedOrSkip, uniqueToken } from './lib/env.mjs'
-import { startWsServer } from './lib/ws-server.mjs'
+import { startWsServer } from '../lib/ws-server.mjs'
 import { startBridge } from './lib/processes.mjs'
 
 function lifecycleEvents(proc) {

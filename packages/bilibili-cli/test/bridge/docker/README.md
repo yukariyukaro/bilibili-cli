@@ -1,11 +1,11 @@
 # bilibili-cli bridge Docker E2E（可选）
 
 可选 Linux 隔离入口，用**真实打包安装**的 `bilibili` 运行与宿主相同的
-`skills/bilibili-cli/test/bridge/offline.mjs build`。不另造 suite、不 mock B 站、
+`packages/bilibili-cli/test/bridge/offline.mjs build`。不另造 suite、不 mock B 站、
 不读取凭证、不挂载宿主。
 
-当前状态（本机实测）：`node skills/bilibili-cli/test/bridge/docker/run.mjs --check`
-为 `static-checked` / exit 0（68 个 context 文件、32 个 `.mjs` 通过 `node --check`、12 项静态检查）；
+当前状态（本机实测）：`node packages/bilibili-cli/test/bridge/docker/run.mjs --check`
+为 `static-checked` / exit 0（context 文件、`.mjs` 语法与静态检查均通过）；
 默认 `node .../run.mjs` 为 `status=unavailable` / exit 2（Docker client 29.8.0，Server null，
 `dockerDesktopLinuxEngine` pipe 不存在）。未构建镜像、未运行容器，不宣称容器通过。
 
@@ -13,10 +13,10 @@
 
 ```bash
 # 无 daemon 的静态校验：准备临时 context、校验 TS/发布闭包/凭证/参数/语法
-node skills/bilibili-cli/test/bridge/docker/run.mjs --check
+node packages/bilibili-cli/test/bridge/docker/run.mjs --check
 
 # 默认：探活 Docker -> build -> docker run
-node skills/bilibili-cli/test/bridge/docker/run.mjs
+node packages/bilibili-cli/test/bridge/docker/run.mjs
 
 # 根 package 入口（默认 Docker 模式）
 npm run test:bridge:docker
@@ -40,21 +40,21 @@ npm run test:bridge:docker
 runner 只复制：
 
 ```text
-skills/bilibili-cli/src/**/*.mts
-skills/bilibili-cli/tsconfig.json
-skills/bilibili-cli/scripts/{compile,build,closure}.mjs
-skills/bilibili-cli/cli/bili.mjs         兼容 shim（只转 dist/lib/command.mjs）
-skills/bilibili-cli/package.json
-skills/bilibili-cli/package-lock.json
+packages/bilibili-cli/src/**/*.mts
+packages/bilibili-cli/tsconfig.json
+packages/bilibili-cli/scripts/{compile,build,closure}.mjs
+packages/bilibili-cli/cli/bili.mjs         兼容 shim（只转 dist/lib/command.mjs）
+packages/bilibili-cli/package.json
+packages/bilibili-cli/package-lock.json
 packages/bilibili-cli/{README.md,LICENSE,CHANGELOG.md} 与 skills/bilibili-cli/{SKILL.md,references/**}
-skills/bilibili-cli/test/bridge/**        offline/e2e/regressions/backend/protocol/lifecycle/lib
+packages/bilibili-cli/test/bridge/**        offline/e2e/regressions/backend/protocol/lifecycle/lib
 Dockerfile / .dockerignore / context-manifest.json
 ```
 
 明确排除：仓库根、`bilibili-api-ts`、`bilibili-api-python`、`node_modules`、`.git`、
 `dist`、`release`、`.artifacts`、状态、凭证、HOME、审计、二维码、压缩包、日志。
 `--check` 断言 context 顶层只有
-`Dockerfile / .dockerignore / context-manifest.json / skills`。
+`Dockerfile / .dockerignore / context-manifest.json / packages / skills`。
 
 ## 容器构建与运行
 

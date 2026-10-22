@@ -65,7 +65,8 @@ test('bridge CLI 传输层（真实安装 CLI 子进程）：无确认不放行�
   const currentPath = process.env.PATH || process.env.Path || ''
   const mergedPath = installed.binDir + (process.platform === 'win32' ? ';' : ':') + currentPath
   const backend = new BilibiliCliBackend({
-    command: 'bilibili',
+    command: process.execPath,
+    args: [join(installed.packageDir, 'dist', 'cli', 'bili.mjs'), '--jsonl'],
     env: {
       ...process.env,
       BILIBILI_SKILL_HOME: home,

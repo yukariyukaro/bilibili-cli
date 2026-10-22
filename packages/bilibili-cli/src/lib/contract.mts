@@ -43,8 +43,17 @@ export const commands: CommandDefinition[] = [
   { name: 'schema', description: '输出版本化命令契约', fields: {} },
   { name: 'skills list', description: '列出随 CLI 交付的技能', fields: {} },
   { name: 'skills read', description: '读取技能指导', fields: { name: string('技能名', { default: 'bilibili-cli', enum: ['bilibili-cli'] }) } },
-  { name: 'skills cleanup', description: '预览旧Skill目录；明确确认后仅隔离已知完整历史副本（不永久删除）', fields: { path: string('旧bilibili-cli技能目录的绝对路径；不扫描用户目录', { required: true }), confirm: { type: 'boolean', description: '已确认把预览匹配的旧Skill目录移入同级可回滚备份', default: false } } },
-  { name: 'bridge run', description: '启动长期 bridge 监听（长期事件流，不作为普通 JSON/JSONL 请求）', stream: true, fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json'), ownerUids: string('允许的 B 站账号 UID，逗号分隔正安全整数；默认读取环境变量 BILIBILI_OWNER_UID', { pattern: '^[1-9][0-9]*(?:,[1-9][0-9]*)*$' }), url: string('cc-connect bridge WebSocket 地址，仅 ws:// 或 wss://；默认读取环境变量 CC_CONNECT_BRIDGE_URL', { pattern: '^wss?://' }), pollMs: integer('轮询间隔毫秒，最小 6000', 6000, 2147483647, 6000) } },
+  {
+    name: 'bridge run',
+    description: '启动长期 bridge 监听（长期事件流，不作为普通 JSON/JSONL 请求）',
+    stream: true,
+    fields: {
+      statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json'),
+      ownerUids: string('允许的 B 站账号 UID，逗号分隔正安全整数；未传时读取 BILIBILI_OWNER_UID', { pattern: '^[1-9][0-9]*(?:,[1-9][0-9]*)*$', env: 'BILIBILI_OWNER_UID' }),
+      url: string('cc-connect bridge WebSocket 地址，仅 ws:// 或 wss://；未传时读取 CC_CONNECT_BRIDGE_URL', { pattern: '^wss?://', env: 'CC_CONNECT_BRIDGE_URL' }),
+      pollMs: { type: 'integer', description: '轮询间隔毫秒，最小 6000；未传时读取 BILIBILI_POLL_MS，再回退 6000', minimum: 6000, maximum: 2147483647, default: 6000, defaultSource: 'env', env: 'BILIBILI_POLL_MS' },
+    },
+  },
   { name: 'bridge status', description: '读取已运行 bridge 的有限状态', fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json') } },
   { name: 'bridge stop', description: '请求已运行 bridge 优雅停止', fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json') } },
 ]

@@ -106,8 +106,9 @@ export function readonlyOrSkip(t) {
   return { installed, talkerUid: OWNER_UID }
 }
 
+/** 人工确认类用例登记为 TODO（在 TAP 中与 skip 分开统计），而不是伪装成已覆盖的 skip。 */
 export function manual(t, reason) {
-  t.skip('MANUAL: ' + reason + '。本轮自动化不执行真实写、不复制凭证、不越过用户逐次确认。')
+  t.todo('MANUAL: ' + reason + '。本轮自动化不执行真实写、不复制凭证、不越过用户逐次确认。')
 }
 
 export function environmentSummary() {

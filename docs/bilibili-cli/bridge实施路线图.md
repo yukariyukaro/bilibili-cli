@@ -2,7 +2,9 @@
 
 更新时间：2026-10-22
 
-文档归属：本文件与 AGENTS.md、CONTEXT.md 集中在 Skill 产品目录。下文显式 `skills/bilibili-cli/` 前缀及历史 demo 路径仍按 Git 根目录描述；Markdown 链接按本文件当前位置解析。未移动 Git 根目录或其他项目。
+文档归属：本文件与 AGENTS.md、CONTEXT.md 位于 `docs/bilibili-cli/`。2.0.0 起仓库结构为 `packages/bilibili-cli/`（CLI 源码、测试、构建）、`skills/bilibili-cli/`（仅 SKILL.md 与 references）、`docs/bilibili-cli/`（维护者文档）。下文带 `skills/bilibili-cli/src/`、`skills/bilibili-cli/test/` 等前缀的段落是 1.2.0 之前的历史状态记录，不代表当前布局；Markdown 链接按本文件当前位置解析。
+
+> 2.0.0（2026-10-22）变更：公开命令移除 `skills cleanup`，改由维护脚本 `packages/bilibili-cli/scripts/skill-cleanup.mjs` 执行；bridge 改为自举当前 CLI 入口；`doctor` 与 `skills list` 报告 Skill 文档版本。下文“27 条命令”“cleanup 已落地”等描述是变更前的历史状态。
 
 执行记录（2026-10-22 最终）：阶段 1 离线基线完成（真实账号 E2E 未验）；阶段 2 本轮迁移、清理与安装验收完成，尚未发布。Lead 执行 `npm run typecheck && npm test` 为 exit 0（wm81Zo）：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过；Docker `--check` exit 0（74 白名单/34 mjs），daemon 实际未运行。旧 `lib/*.mjs` 与 `bilibili-bridge/` demo 已删除，仅保留 `cli/bili.mjs` 薄 shim。阶段 3–5 未开始。远端仍为旧提交 `49c530e`，1.1.0 未 commit/push；literal npx 离线 wrapper 未验，不能宣称远端 npx 新版可验证。当前包版本 1.1.0 Unreleased，不是发布声明。测试入口、历史结果与证据缺口见 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)；真实账号验收未执行时不宣称真实收发已验证。
 
@@ -30,9 +32,9 @@ E2E 不是做完一次就结束：先建立基线，迁移后复验，重构每�
 
 ## 三、当前事实与计划边界
 
-- 唯一 CLI 与 bridge 产品源码位于 `skills/bilibili-cli/src/`，使用严格 TypeScript（`.mts`），编译到 `dist/`。旧 `skills/bilibili-cli/lib/*.mjs` 与 `bilibili-bridge/` demo 已删除，不再是第二份运行时实现；仅保留 `cli/bili.mjs` 兼容薄启动器。
-- 已实现 27 条命令：原 23 条 + `bridge run/status/stop` + `skills cleanup`。run 是独立长期事件流，status/stop 是有限控制请求；cleanup 使用 `--path <绝对路径> [--confirm]`，默认预览，confirm 只把已知完整历史副本隔离到同级可回滚位置、不永久删除。`run` 不能放进 `bilibili --jsonl`，会快速返回 STREAM_ONLY（退出码 2），后续行继续处理；原 23 条命令名称/字段/默认值/信封不变。
-- bridge 通过已安装的 `bilibili --jsonl` 调用 CLI，并连接 cc-connect；当前不外接内置 agent 引擎，也不打包 cc-connect 的 Go 引擎。不能把“仿照 cc-connect 架构”误解成“已经具备同等分层”。
+- 唯一 CLI 与 bridge 产品源码位于 `packages/bilibili-cli/src/`，使用严格 TypeScript（`.mts`），编译到 `dist/`。旧 `skills/bilibili-cli/lib/*.mjs` 与 `bilibili-bridge/` demo 已删除，不再是第二份运行时实现；仅保留 `cli/bili.mjs` 兼容薄启动器。
+- 当前公开命令 26 条：原 23 条 + `bridge run/status/stop`。run 是独立长期事件流，status/stop 是有限控制请求；`skills cleanup` 已移出公开 CLI，改由维护脚本执行。`run` 不能放进 `bilibili --jsonl`，会快速返回 STREAM_ONLY（退出码 2），后续行继续处理；原 23 条命令名称/字段/默认值/信封不变。
+- bridge 默认用当前 node 可执行文件 + 包内 `dist/cli/bili.mjs` 自举子进程，并连接 cc-connect；不再要求 PATH 上存在 `bilibili`，也不打包 cc-connect 的 Go 引擎。不能把“仿照 cc-connect 架构”误解成“已经具备同等分层”。
 - 发布包入口是 `dist/cli/bili.mjs`；`cli/bili.mjs` 仅保留为兼容薄启动器。版本由包根 `package.json` 单一来源驱动，当前 1.1.0 Unreleased。
 - 最终回归（Lead，`npm run typecheck && npm test`）exit 0：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（74 白名单/34 mjs），Docker daemon 实际未运行。typecheck 0，运行时源码已冻结。
 - 阶段 1 离线基线完成；真实账号只读/写 E2E 未执行，不宣称真实收发通过。两条历史红灯（pending 白名单/顺序、饱和排空）已修复并由 2/2 回归覆盖。
@@ -131,7 +133,7 @@ skills/bilibili-cli/
 | `bilibili bridge run` | 长期事件流 | 前台运行，stdout 输出生命周期 JSON（`registered`/`ready`/`error`/`stopped`）；可选 `--state-path`、`--owner-uids`、`--url`、`--poll-ms`（6000–2147483647，schema 默认 6000）；token 仅从 `CC_CONNECT_BRIDGE_TOKEN` 读取；owner/url/poll 可由环境变量回退，显式参数优先；信号由 bridge 持有，CLI 映射 130/143；不能放进 `--jsonl` |
 | `bilibili bridge status` | 有限请求 | 可选 `--state-path`；返回 `{running, pid?, statePath}`；不启动服务、不创建状态目录 |
 | `bilibili bridge stop` | 有限请求 | 可选 `--state-path`；向同一状态路径实例写 stop 标记并等待优雅停止；未运行幂等；超时/坏锁抛结构化错误（如 `STOP_TIMEOUT`、`LOCK_UNREADABLE`），退出码 2 |
-| `bilibili skills cleanup` | 有限请求（本地隔离） | `--path <绝对路径> [--confirm]`；默认预览；confirm 只隔离已知完整历史副本到同级可回滚位置，不永久删除；拒绝 canonical/ancestor lock/symlink/含 node_modules 或自定义内容/凭证/links |
+| `skills cleanup`（2.0.0 起维护脚本） | 本地隔离 | 已移出公开 CLI；改由 `node packages/bilibili-cli/scripts/skill-cleanup.mjs --path <绝对路径> [--confirm] --json` 执行，语义不变 |
 | `bilibili schema` / `--help` / `--jsonl` | 契约共用 | 27 条命令共用同一份 contract；`run` 为 `stream:true`；JSONL 中 `bridge run` 先校验字段再返回 STREAM_ONLY，后续行继续 |
 
 安装入口：`package.json` 的 `bin.bilibili` 指向 `dist/cli/bili.mjs`；`cli/bili.mjs` 仅为兼容启动器。版本、帮助、schema 与 `skills list` 均读取包根 `package.json`，不再散落硬编码。
@@ -153,7 +155,7 @@ skills/bilibili-cli/
 
 ### 旧版 Skill 清理：官方 remove 优先，自制品范围受限（本地验收完成；远端 npx 未验）
 
-`skills cleanup --path <绝对路径> [--confirm]` 已实现并纳入 27 条命令。默认预览；confirm 只把已知完整历史副本在同级 rename 到可回滚隔离位置，不永久删除。官方 `npx skills remove` 仍是 managed 安装的主路径。
+`skills cleanup --path <绝对路径> [--confirm]` 在 1.1.0 实现并纳入当时 27 条命令；2.0.0 起移出公开 CLI，改由维护脚本执行。默认预览；confirm 只把已知完整历史副本在同级 rename 到可回滚隔离位置，不永久删除。官方 `npx skills remove` 仍是 managed 安装的主路径。
 
 #### 安装布局与主路径
 
@@ -373,7 +375,7 @@ skills/bilibili-cli/
 ### 提交、推送与证据
 
 - 没有用户明确请求时，不 commit、不 push、不打 tag、不发布。
-- 每次准备 commit/push 前更新 `skills/bilibili-cli/CHANGELOG.md`：记录用户可见变化、兼容影响、已验证项和未验证项；不以日志替代测试证据。
+- 每次准备 commit/push 前更新 `packages/bilibili-cli/CHANGELOG.md`：记录用户可见变化、兼容影响、已验证项和未验证项；不以日志替代测试证据。
 - 类型检查、构建、真实打包安装 E2E、变更审查未完成前，不把变更记录成“已验收”；未验证、未发布内容保留在 Unreleased。
 - 旧版 Skill 清理已本地/离线验收（双路径 15/15），但远端 npx 新版未验；literal npx 离线 wrapper 未验、远端仍为 `49c530e`。未完成远端独立 scope 验证前，不写入“远端 npx 已支持”。
 
@@ -400,7 +402,7 @@ skills/bilibili-cli/
 - [cc-connect 安装与会话操作](https://github.com/chenhg5/cc-connect/blob/main/INSTALL.md)
 - [cc-connect 项目说明](https://github.com/chenhg5/cc-connect)
 - [lark-cli：CLI 与 Agent Skill 分层交付](https://github.com/larksuite/cli)
-- 本地依据：`AGENTS.md`、`skills/bilibili-cli/src/`、`skills/bilibili-cli/test/bridge/`、`skills/bilibili-cli/scripts/`、`skills/bilibili-cli/references/cli-contract.md`、`skills/bilibili-cli/CHANGELOG.md` 和 `bilibili-api-python/bilibili_api/session.py`。
+- 本地依据：`AGENTS.md`、`packages/bilibili-cli/src/`、`packages/bilibili-cli/test/bridge/`、`packages/bilibili-cli/scripts/`、`skills/bilibili-cli/references/cli-contract.md`、`packages/bilibili-cli/CHANGELOG.md` 和 `bilibili-api-python/bilibili_api/session.py`。
 
 阶段 1 的历史 E2E 结果、两条红灯和证据边界见 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)。最终 Lead 执行 `npm run typecheck && npm test` 为 exit 0（wm81Zo）：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（74 白名单/34 mjs），Docker daemon 实际未运行。ts-service review 原 P1 已解除：outbound nullish/raw 兼容、non-object credential 返回 AUTH(3)；mutual 判定仍严格 ===6。阶段 1 离线基线据此关闭；阶段 2 本轮迁移/清理/安装验收完成。真实 B 站只读/写往返未执行，没有发布或打 tag。远端仓库仍是旧提交 `49c530e`，1.1.0 未 commit/push；literal npx 离线 wrapper 未验，直接安装 skills 1.7.4 的临时 local copy/remove 已验证，但不能作为远端 npx 新版证据。
 
@@ -420,8 +422,8 @@ skills/bilibili-cli/
 | 类别 | 当前结论 | 后续处理 |
 | --- | --- | --- |
 | 已明确的目标 | 可视化、会话绑定、Skill 引导、统一能力和可靠 E2E | 作为各阶段验收要求 |
-| 当前推荐方案 | 单 npm 包，`bilibili bridge run/status/stop` 与 `skills cleanup` 已落地；包内 bridge 子系统按需加载；静态 Web UI 尚未实现 | bridge 命令、cleanup 与版本单源已落地；Web 控制台属阶段 4，不能宣称已有 |
-| 升级与清理 | `skills cleanup` 已实现并本地双路径 15/15；官方 remove 为 managed 主路径，自制品仅 unmanaged pristine | 拒绝 canonical/ancestor skill lock/symlink/含 node_modules 或自定义内容/凭证/links；绝对显式 path、默认 preview、已知历史精确清单+SHA256、confirm 同级 quarantine/手动回滚、无安装钩子；旧名 `bilibili-agent` 无 hash 不自动清；远端 `49c530e` 未 push，literal npx 离线 wrapper 未验，npx 新版需独立 scope+npm ci/compile，当前不可验 |
+| 当前推荐方案 | 单 npm 包，`bilibili bridge run/status/stop` 已落地；包内 bridge 子系统按需加载；`skills cleanup` 改为维护脚本；静态 Web UI 尚未实现 | bridge 命令与版本单源已落地；Web 控制台属阶段 4，不能宣称已有 |
+| 升级与清理 | `skills cleanup` 已移出公开 CLI，改维护脚本；历史验收双路径 15/15；官方 remove 为 managed 主路径 | 拒绝 canonical/ancestor skill lock/symlink/含 node_modules 或自定义内容/凭证/links；绝对显式 path、默认 preview、已知历史精确清单+SHA256、confirm 同级 quarantine/手动回滚、无安装钩子；旧名 `bilibili-agent` 无 hash 不自动清；远端 `49c530e` 未 push，literal npx 离线 wrapper 未验，npx 新版需独立 scope+npm ci/compile，当前不可验 |
 | 插件定位 | 各宿主的薄入口，共用核心与账号同步状态 | 验证官方能力后选择插件、hook 或 Skill |
 | cc-connect 关系 | 参考其分层；现有外部 cc-connect 路径是否长期保留尚待决定 | 不默认既重造完整 cc-connect，又强制用户安装它 |
 | 自动执行 | 不实时插话不等于不能自动处理；可选择主动拉取或由引擎调度专用会话 | 明确“收消息、触发 agent、发出回复”三个独立开关 |
@@ -436,7 +438,7 @@ skills/bilibili-cli/
 | --- | --- | --- |
 | `src/lib/contract.mts` | 27 条命令的共享契约（原 23 条 + bridge 3 条 + cleanup 1 条）、字段校验与版本化信封 | help/schema/JSONL 必须继续同源；新增命令遵守 stream/有限请求边界 |
 | `src/lib/command.mts` | Commander 注册、help/schema 输出、JSONL 逐行处理、stream 生命周期与信号映射 | 参数错误与长流错误路径分开；不把 run 塞进有限请求队列 |
-| `src/lib/application.mts` | 有限命令执行、配置/凭证 context、写开关与审计、bridge status/stop 与 skills cleanup 按需入口 | bridge 不绕过校验/互关/审计；status/stop 不创建凭证状态；cleanup 只做本地隔离 |
+| `src/lib/application.mts` | 有限命令执行、配置/凭证 context、写开关与审计、bridge status/stop 与 skills 版本信息 | bridge 不绕过校验/互关/审计；status/stop 不创建凭证状态；清理已迁到维护脚本 |
 | `src/lib/skill-cleanup.mts` / `legacy-skills.mts` | 已知历史 Skill 快照清单/哈希、清理 preview、canonical/lock/symlink/node_modules 拒绝、confirm 同级隔离与回滚 | per-snapshot 版本、SHA256、O_NOFOLLOW/Windows 复核；只支持 unmanaged pristine |
 | `src/lib/version.mts` | 读取包根 `package.json` 并校验版本字符串，供 `--version`/schema/skills list 共用 | 版本只改 package，不在源码散落硬编码 |
 | `src/lib/bridge/main.mts` | bridge 配置、单实例、状态/基线、轮询与连接生命周期、信号与 stop 收尾 | 当前为单进程装配；阶段 3 才拆分核心/适配器 |
@@ -525,7 +527,7 @@ skills/bilibili-cli/
 - 先读取本文件和当前 `AGENTS.md`，重新核对源码与测试，不把对话中的伪代码当作现有 API。
 - 不将本文的推荐方案视为已批准全部实现；逐项推进，按当前用户请求决定本轮范围。
 - 不擅自恢复 DSH/MCP 层，不复制浏览器 Cookie，不自动开写权限或启动常驻监听。
-- 当前已落地：严格 TypeScript 源码与构建、`bridge run/status/stop`、`skills cleanup`、版本单源、`cli/bili.mjs` 兼容启动器、poll 环境变量语义。阶段 1 离线基线与阶段 2 本地迁移/清理/安装验收完成；旧 `lib`/demo 已删除。
+- 当前已落地：严格 TypeScript 源码与构建、`bridge run/status/stop`、版本单源与 Skill 文档版本报告、`cli/bili.mjs` 兼容启动器、poll 环境变量语义；`skills cleanup` 已改为维护脚本。阶段 1 离线基线与阶段 2 本地迁移/安装验收完成；旧 `lib`/demo 已删除。
 - 仍未验证：真实 B 站账号只读/写往返；远端 npx 新版（远端仍 `49c530e`，未 commit/push，literal npx 离线 wrapper 未验）。直接 skills 1.7.4 临时 local copy/remove 已验，但不能替代远端证据。
 - 阶段 3–5（分层重构、绑定与 agent、Web 控制台、宿主插件）均未开始；不能把命令/传输层伪装成分层或产品闭环已完成。
 - 版本当前为 1.1.0 Unreleased；未获用户明确请求不 commit、不 push、不打 tag、不发布。每次准备提交前更新 `CHANGELOG.md`，并区分已验证与未验证项。

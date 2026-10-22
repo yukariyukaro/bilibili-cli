@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { fileURLToPath } from 'node:url'
 
 import { errorMessage, isPlainObject, isSafePositiveInteger } from './guards.mjs'
 import { parseJsonLossless } from './json.mjs'
@@ -27,6 +28,14 @@ function extractMessages(value: unknown): unknown[] {
   }
   throw failure('CLI_PROTOCOL', 'dm read 未返回 messages 数组')
 }
+
+/**
+ * bridge 默认复用当前安装的 CLI 自身（node + 包内入口），不再依赖 PATH 上
+ * 是否恰好有一个同名命令；安装形态变化不会让 bridge 失效。
+ */
+const CLI_ENTRY = fileURLToPath(new URL('../../cli/bili.mjs', import.meta.url))
+export const DEFAULT_CLI_COMMAND = process.execPath
+export const DEFAULT_CLI_ARGS = [CLI_ENTRY, '--jsonl']
 
 export interface BilibiliCliBackendOptions {
   command?: string
@@ -66,8 +75,8 @@ export class BilibiliCliBackend {
   private closed = false
 
   constructor({
-    command = 'bilibili',
-    args = ['--jsonl'],
+    command = DEFAULT_CLI_COMMAND,
+    args = DEFAULT_CLI_ARGS,
     env = process.env,
     logger = console,
     requestTimeoutMs = 30000,
@@ -95,26 +104,13 @@ export class BilibiliCliBackend {
   }
 
   private async startProcess(): Promise<void> {
-    // Windows npm 的 PATH 入口是 .cmd；只交给 shell 固定的启动命令，业务参数始终走 stdin。
-    const windowsShim = process.platform === 'win32' && /^(bilibili|.*\.cmd)$/i.test(this.command)
-    if (windowsShim && /[\r\n"&|<>^%!]/.test(this.command)) {
-      throw failure('CLI_COMMAND', 'unsafe CLI command path')
-    }
-    // Windows shim 走 cmd.exe，只允许产品固定的 --jsonl；故障测试用 node 直接 spawn，不经过 shell。
-    if (windowsShim && (this.args.length !== 1 || this.args[0] !== '--jsonl')) {
-      throw failure('CLI_COMMAND', 'Windows CLI shim only supports the fixed --jsonl argument')
-    }
-    const child = windowsShim
-      ? spawn(
-          this.env.ComSpec || process.env.ComSpec || 'cmd.exe',
-          ['/d', '/s', '/c', (this.command === 'bilibili' ? 'bilibili' : '"' + this.command + '"') + ' ' + this.args.join(' ')],
-          { env: this.env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] },
-        )
-      : spawn(this.command, this.args, {
-          env: this.env,
-          windowsHide: true,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        })
+    // 默认命令是当前的 node 可执行文件 + 包内 CLI 入口；不存在 shell 拼接，
+    // 也不需要 Windows .cmd shim。
+    const child = spawn(this.command, this.args, {
+      env: this.env,
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
 
     this.child = child
     this.childFinished = new Promise<number | null>((resolveFinished) => {

@@ -9,7 +9,7 @@ import { startBridgeRun } from '../../lib/bridge-run.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-/** skills/bilibili-cli/test/bridge/regressions/lib */
+/** packages/bilibili-cli/test/bridge/regressions/lib */
 export const TEST_BRIDGE_DIR = resolve(HERE, '..', '..')
 export const REGRESSIONS_DIR = resolve(HERE, '..')
 export const REPO_ROOT = resolve(TEST_BRIDGE_DIR, '..', '..', '..')

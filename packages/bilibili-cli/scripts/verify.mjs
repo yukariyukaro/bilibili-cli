@@ -80,13 +80,10 @@ const batch = (rows, status = 0) => {
 
 await check('生成独立 CLI 与纯文档技能，无运行时代码副本', () => {
   assert.equal(exec(process.execPath, [join(source, 'scripts', 'build.mjs'), output]).status, 0)
-  assert.equal(existsSync(join(output, 'skill', 'cli')), false)
-  assert.equal(existsSync(join(output, 'skill', 'SKILL.md')), true)
   assert.deepEqual(readdirSync(skillRoot).sort(), ['SKILL.md', 'references'], 'skills add 目标只应包含 Skill 文档')
   assert.equal(readdirSync(join(skillRoot, 'references')).sort().join(','), 'bridge.md,cli-contract.md,skill-upgrade.md')
   assert.equal(readFileSync(join(output, 'SKILL.md'), 'utf8'), readFileSync(join(skillRoot, 'SKILL.md'), 'utf8'))
-  assert.deepEqual(readdirSync(join(output, 'skill')).sort(), ['SKILL.md', 'references'])
-  assert.equal(readFileSync(join(output, 'skill', 'SKILL.md'), 'utf8'), readFileSync(join(skillRoot, 'SKILL.md'), 'utf8'))
+  assert.equal(existsSync(join(output, 'skill')), false, '发布目录不再生成不会进入 tarball 的 skill/ 副本')
   assert.equal(existsSync(join(output, 'scripts')), false)
   assert.equal(existsSync(join(output, 'dist', 'lib', 'service.mjs')), true)
   assert.equal(existsSync(join(output, 'lib', 'backend.mjs')), false)
@@ -232,31 +229,68 @@ await check('npm exec 在仓库外隔离目录直接运行已构建 tarball，�
 await check('真实分组帮助、schema 和技能发现均无用户状态副作用', () => {
   const schema = json(['schema']).result
   const originalNames = ['auth login start', 'auth login poll', 'auth status', 'video search', 'video info', 'video subtitle', 'video hot', 'comment list', 'comment thread', 'comment create', 'comment delete', 'user info', 'user relation', 'inbox', 'dm status', 'dm read', 'dm send', 'config get', 'config set', 'doctor', 'schema', 'skills list', 'skills read']
-  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, 'bridge run', 'bridge status', 'bridge stop', 'skills cleanup'].sort())
+  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, 'bridge run', 'bridge status', 'bridge stop'].sort())
   assert.equal(schema.version, sourceManifest.version)
   const legacyContract = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'commands-1.0.0.json'), 'utf8'))
   assert.deepEqual(schema.commands.filter((c) => originalNames.includes(c.name)), legacyContract, '原23命令的字段、顺序、描述、默认值与枚举必须保持兼容')
-  assert.equal(schema.commands.find((c) => c.name === 'bridge run').stream, true)
-  const cleanup = schema.commands.find((c) => c.name === 'skills cleanup')
-  assert.deepEqual(Object.keys(cleanup.fields).sort(), ['confirm', 'path'])
-  assert.equal(cleanup.fields.path.required, true)
-  assert.equal(cleanup.fields.confirm.default, false)
-  assert.equal(cleanup.stream, undefined)
-  assert.equal(json(['skills', 'cleanup'], 2).error.code, 'VALIDATION')
-  const cleanupInvalid = batch([request('skills cleanup', { path: 'ignored', confirm: 'true' }), request('schema', {}, 'after-cleanup-validation')], 2)
-  assert.equal(cleanupInvalid[0].error.code, 'VALIDATION')
-  assert.equal(cleanupInvalid[1].ok, true)
+  const bridgeRun = schema.commands.find((c) => c.name === 'bridge run')
+  assert.equal(bridgeRun.stream, true)
+  assert.equal(bridgeRun.fields.pollMs.default, 6000)
+  assert.equal(bridgeRun.fields.pollMs.defaultSource, 'env')
+  assert.equal(bridgeRun.fields.pollMs.env, 'BILIBILI_POLL_MS')
+  assert.equal(bridgeRun.fields.ownerUids.env, 'BILIBILI_OWNER_UID')
+  assert.equal(bridgeRun.fields.url.env, 'CC_CONNECT_BRIDGE_URL')
+  assert.equal(json(['skills', 'cleanup'], 2).error.code, 'USAGE', '清理动作已迁出公开 CLI')
   for (const item of schema.commands) {
     assert.equal(invoke([...item.name.split(' '), '--help']).status, 0)
   }
   for (const group of ['auth', 'video', 'comment', 'user', 'inbox', 'dm', 'config', 'skills', 'bridge']) assert.equal(invoke([group, '--help']).status, 0)
-  assert.equal(json(['skills', 'list']).result[0].name, 'bilibili-cli')
-  assert.match(json(['skills', 'read']).result.content, /逐次/)
+  const skills = json(['skills', 'list']).result
+  assert.equal(skills[0].name, 'bilibili-cli')
+  assert.equal(skills[0].version, sourceManifest.version)
+  assert.equal(skills[0].cliVersion, sourceManifest.version)
+  assert.equal(skills[0].docVersion, sourceManifest.version, 'Skill 文档版本必须与随包 CLI 一致')
+  assert.match(skills[0].docPath, /SKILL\.md$/)
+  assert.equal(skills[0].matchesCli, true)
+  const skillRead = json(['skills', 'read']).result
+  assert.equal(skillRead.docVersion, sourceManifest.version)
+  assert.match(skillRead.content, /逐次/)
   assert.equal(existsSync(state), false)
   const doctor = json(['doctor']).result
   assert.equal(doctor.dependenciesInstalled, true)
   assert.equal(doctor.library, '@yukariyukaro/bilibili-api-ts')
   assert.match(String(doctor.libraryVersion), /^17\.4\./)
+  assert.equal(doctor.skill.docVersion, sourceManifest.version)
+  assert.equal(doctor.skill.requiresCli, sourceManifest.version.split('.').slice(0, 2).join('.'))
+  assert.equal(doctor.skill.matchesCli, true)
+  const setup = json(['doctor', '--setup']).result
+  assert.equal(setup.setup, true, 'doctor --setup 必须真正返回运行时装配视图')
+  assert.equal(setup.library, '@yukariyukaro/bilibili-api-ts')
+  assert.equal(Object.hasOwn(setup, 'credentialPresent'), false, 'setup 视图不读取/不报告凭证状态')
+})
+
+await check('文档一致性：单一安装入口、无 npx 运行 CLI、命令表与 schema 对齐', () => {
+  const skillText = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+  const contractText = readFileSync(join(skillRoot, 'references', 'cli-contract.md'), 'utf8')
+  const rootText = readFileSync(join(root, 'README.md'), 'utf8')
+  const productText = readFileSync(join(source, 'README.md'), 'utf8')
+  const docs = [['SKILL.md', skillText], ['cli-contract.md', contractText], ['根 README', rootText], ['产品 README', productText]]
+  const installCount = docs.reduce((sum, [, text]) => sum + (text.match(/npm install -g @yukariyukaro\/bilibili-cli/g) || []).length, 0)
+  assert.equal(installCount, 1, '全局安装命令只允许在 cli-contract 保留一处，其余文档链接过去')
+  for (const [name, text] of docs) {
+    assert.doesNotMatch(text, /npx\s+(?:--package\s+)?@?yukariyukaro\/bilibili-cli/, name + ' 不得把 npx 当作 CLI 运行兜底')
+    assert.doesNotMatch(text, /npx\s+-p\s+[^\n]*bilibili-cli/, name + ' 不得把 npx -p 当作 CLI 运行兜底')
+  }
+  assert.doesNotMatch(contractText, /^\|\s*skills cleanup\s*\|/m, '分发域清理动作不属于 CLI 命令表')
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(skillText)?.[1] ?? ''
+  const docVersion = /^\s{2}version:\s*"([^"]+)"/m.exec(front)?.[1]
+  const requiresCli = /^\s{2}requiresCli:\s*"([^"]+)"/m.exec(front)?.[1]
+  assert.equal(docVersion, sourceManifest.version, 'SKILL.md metadata.version 必须与随包 CLI 同版本')
+  assert.equal(requiresCli, sourceManifest.version.split('.').slice(0, 2).join('.'), 'SKILL.md requiresCli 必须声明主次版本')
+  const schema = json(['schema']).result
+  for (const [name, text] of [['CLI 契约', contractText], ['产品 README', productText]]) {
+    for (const command of schema.commands) assert.ok(text.includes(command.name), name + ' 的命令表缺少 ' + command.name)
+  }
 })
 
 await check('bridge 流边界、环境回退与有限控制不启动服务', () => {
@@ -377,55 +411,84 @@ if (existsSync(bridgeOffline)) {
   })
 }
 
+let live = { status: 'disabled', reason: '未设置 BILIBILI_E2E=1 或 BILIBILI_E2E_READONLY=1' }
 if (process.env.BILIBILI_E2E_READONLY === '1' || process.env.BILIBILI_E2E === '1') {
-  await check('真实 B 站只读回归：登录态、热门、搜索、视频、字幕、评论、楼中楼、用户、通知、私信', () => {
-    const realEnv = { ...process.env }
-    delete realEnv.BILIBILI_SKILL_HOME
-    delete realEnv.NODE_OPTIONS
-    delete realEnv.NODE_PATH
-    realEnv.PATH = env.PATH
-    if (isWin) realEnv.Path = env.PATH
-    const run = (args, retry = 0) => {
-      for (let attempt = 0; ; attempt += 1) {
-        const result = invoke(args, '', { env: realEnv })
-        if (result.status === 0) {
-          const parsed = JSON.parse(result.stdout)
-          assert.equal(parsed.ok, true, result.stdout)
-          return parsed.result
+  const realEnv = { ...process.env }
+  // CI 通过 BILIBILI_SKILL_HOME 指向注入的隔离登录态；未设置时沿用本机默认状态目录。
+  delete realEnv.NODE_OPTIONS
+  delete realEnv.NODE_PATH
+  realEnv.PATH = env.PATH
+  if (isWin) realEnv.Path = env.PATH
+  // 登录态预检：没有凭证或凭证失效时显式 skip，不把“缺登录态”伪装成真实只读通过。
+  const probe = invoke(['auth', 'status', '--json'], '', { env: realEnv, timeout: 60000 })
+  let login = null
+  try { login = probe.status === 0 ? JSON.parse(String(probe.stdout).trim()).result : null } catch { login = null }
+  if (login?.logged_in !== true) {
+    const reason = login?.message || (probe.stderr || probe.stdout || 'auth status 预检失败').trim().split(/\r?\n/).at(-1).slice(0, 300)
+    live = { status: 'skipped', reason }
+    process.stdout.write(`跳过：真实 B 站只读回归（${reason}）\n`)
+  } else {
+    live = { status: 'passed', uid: login.uid ?? null, credentialPresent: login.credentialPresent !== false }
+    await check('真实 B 站只读回归：登录态、热门、搜索、视频、字幕、评论、楼中楼、用户、通知、私信', () => {
+      const run = (args, retry = 0) => {
+        for (let attempt = 0; ; attempt += 1) {
+          const result = invoke(args, '', { env: realEnv })
+          if (result.status === 0) {
+            const parsed = JSON.parse(result.stdout)
+            assert.equal(parsed.ok, true, result.stdout)
+            return parsed.result
+          }
+          if (attempt >= retry) assert.equal(result.status, 0, result.stderr || result.stdout)
         }
-        if (attempt >= retry) assert.equal(result.status, 0, result.stderr || result.stdout)
       }
-    }
-    const doctor = run(['doctor', '--setup', '--json'])
-    assert.equal(doctor.dependenciesInstalled, true, '请先安装 npm 依赖')
-    assert.equal(doctor.library, '@yukariyukaro/bilibili-api-ts')
-    assert.match(String(doctor.libraryVersion), /^17\.4\./)
-    run(['auth', 'status', '--json'])
-    run(['video', 'hot', '--num', '1', '--json'])
-    run(['video', 'search', '--keyword', 'B站', '--num', '1', '--json'], 1)
-    const bvid = process.env.BILIBILI_E2E_BVID || 'BV1pGnn67EbB'
-    run(['video', 'info', '--bvid', bvid, '--json'])
-    run(['video', 'subtitle', '--bvid', bvid, '--json'])
-    const comments = run(['comment', 'list', '--bvid', bvid, '--num', '2', '--json'])
-    if (comments.comments?.length) {
-      run(['comment', 'thread', '--bvid', bvid, '--rpid', String(comments.comments[0].rpid), '--num', '2', '--json'])
-    }
-    run(['user', 'info', '--uid', '946974', '--json'])
-    run(['user', 'relation', '--uid', '946974', '--json'])
-    for (const kind of ['reply', 'like', 'at']) run(['inbox', '--kind', kind, '--json'])
-    const status = run(['dm', 'status', '--uid', '946974', '--json'])
-    assert.equal(typeof status.mutual, 'boolean')
-    if (process.env.BILIBILI_E2E_TALKER) run(['dm', 'read', '--uid', process.env.BILIBILI_E2E_TALKER, '--json'])
-    else process.stdout.write('跳过：真实私信读取（未设置 BILIBILI_E2E_TALKER）\n')
-    run(['dm', 'send', '--uid', '946974', '--text', 'dry-run不发送', '--dry-run', '--json'])
-  })
+      const doctor = run(['doctor', '--json'])
+      assert.equal(doctor.dependenciesInstalled, true, '请先安装 npm 依赖')
+      assert.equal(doctor.library, '@yukariyukaro/bilibili-api-ts')
+      assert.match(String(doctor.libraryVersion), /^17\.4\./)
+      run(['auth', 'status', '--json'])
+      run(['video', 'hot', '--num', '1', '--json'])
+      run(['video', 'search', '--keyword', 'B站', '--num', '1', '--json'], 1)
+      const bvid = process.env.BILIBILI_E2E_BVID || 'BV1pGnn67EbB'
+      run(['video', 'info', '--bvid', bvid, '--json'])
+      run(['video', 'subtitle', '--bvid', bvid, '--json'])
+      const comments = run(['comment', 'list', '--bvid', bvid, '--num', '2', '--json'])
+      if (comments.comments?.length) {
+        run(['comment', 'thread', '--bvid', bvid, '--rpid', String(comments.comments[0].rpid), '--num', '2', '--json'])
+      }
+      run(['user', 'info', '--uid', '946974', '--json'])
+      run(['user', 'relation', '--uid', '946974', '--json'])
+      for (const kind of ['reply', 'like', 'at']) run(['inbox', '--kind', kind, '--json'])
+      const status = run(['dm', 'status', '--uid', '946974', '--json'])
+      assert.equal(typeof status.mutual, 'boolean')
+      if (process.env.BILIBILI_E2E_TALKER) run(['dm', 'read', '--uid', process.env.BILIBILI_E2E_TALKER, '--json'])
+      else process.stdout.write('跳过：真实私信读取（未设置 BILIBILI_E2E_TALKER）\n')
+      run(['dm', 'send', '--uid', '946974', '--text', 'dry-run不发送', '--dry-run', '--json'])
+    })
+  }
 } else {
   process.stdout.write('跳过：真实 B 站只读回归未启用（设置 BILIBILI_E2E=1 后运行）\n')
 }
 
 if (registry) await registry.close()
+const report = {
+  schemaVersion: 1,
+  suite: 'cli-e2e',
+  at: new Date().toISOString(),
+  status: bridgeFailures ? 'failed' : 'passed',
+  node: process.version,
+  platform: process.platform,
+  checks,
+  bridgeFailures,
+  live,
+}
+const reportPath = process.env.BILIBILI_E2E_REPORT
+if (reportPath) {
+  mkdirSync(dirname(reportPath), { recursive: true })
+  writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n', 'utf8')
+  process.stdout.write(`report=${reportPath}\n`)
+}
 if (bridgeFailures) {
   process.stderr.write(`bridge 有 ${bridgeFailures} 组失败；保留红灯供 TDD 修复，不代表真实收发已验证。\n`)
   process.exitCode = 1
 }
-process.stdout.write(`通过 ${checks} 组端到端回归，bridge 失败 ${bridgeFailures} 组；产物与隔离状态保留于：${temp}\n`)
+process.stdout.write(`通过 ${checks} 组端到端回归，bridge 失败 ${bridgeFailures} 组，真实只读 ${live.status}；产物与隔离状态保留于：${temp}\n`)

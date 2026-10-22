@@ -1,7 +1,7 @@
 {
   "name": "@yukariyukaro/bilibili-cli",
-  "version": "1.1.2",
-  "description": "自包含的 B 站研究、扫码登录与显式确认评论 CLI 技能",
+  "version": "2.0.0",
+  "description": "独立 B 站命令行工具：搜索、视频与字幕、评论、用户、私信、写入审计与 bridge 监听",
   "license": "MIT",
   "repository": {
     "type": "git",

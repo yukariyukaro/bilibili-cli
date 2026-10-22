@@ -7,6 +7,7 @@ import { auditFile, configFile, credentialFile, readJson, stateDir, writeJson } 
 import { createRuntime } from './runtime.mjs'
 import type { Runtime } from './runtime.mjs'
 import { VERSION } from './version.mjs'
+import { readSkillMeta, skillMatchesCli } from './skill-meta.mjs'
 import { isRecord } from './cli-types.mjs'
 import type { Application, BridgeControlName, ValidatedArgs } from './cli-types.mjs'
 
@@ -56,11 +57,27 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
     const args = validate(definition, input, cli)
     if (definition.stream === true) throw new CliError('STREAM_ONLY', 'bridge run 是长期事件流，只能直接执行，不能通过 application 或 JSONL 调用', 2)
     if (name === 'schema') return { schemaVersion: 1, version: VERSION, commands, jsonl: { command: '完整分组命令，空格分隔', args: '与 CLI 共用字段', maxLineBytes: 65536 } }
-    if (name === 'skills list') return [{ name: 'bilibili-cli', version: VERSION }]
-    if (name === 'skills read') return { name: readString(args, 'name'), content: readFileSync(join(root, 'SKILL.md'), 'utf8') }
-    if (name === 'skills cleanup') {
-      const { cleanupLegacySkill } = await import('./skill-cleanup.mjs')
-      return cleanupLegacySkill({ path: readString(args, 'path'), confirm: args.confirm === true })
+    if (name === 'skills list') {
+      const meta = readSkillMeta(root)
+      return [{
+        name: 'bilibili-cli',
+        version: VERSION,
+        cliVersion: VERSION,
+        docVersion: meta?.version ?? null,
+        docPath: join(root, 'SKILL.md'),
+        requiresCli: meta?.requiresCli ?? null,
+        matchesCli: skillMatchesCli(meta, VERSION),
+      }]
+    }
+    if (name === 'skills read') {
+      const meta = readSkillMeta(root)
+      return {
+        name: readString(args, 'name'),
+        docVersion: meta?.version ?? null,
+        docPath: join(root, 'SKILL.md'),
+        requiresCli: meta?.requiresCli ?? null,
+        content: readFileSync(join(root, 'SKILL.md'), 'utf8'),
+      }
     }
     if (name === 'bridge status' || name === 'bridge stop') {
       const control: BridgeControlName = name === 'bridge status' ? 'status' : 'stop'
@@ -84,6 +101,18 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
     }
     if (name === 'doctor') {
       const info = await runtime.setup()
+      const meta = readSkillMeta(root)
+      if (args.setup === true) {
+        return {
+          setup: true,
+          node: process.version,
+          stateDir: dir,
+          dependenciesInstalled: info.installed === true,
+          library: info.library,
+          libraryVersion: info.version,
+          librarySpec: info.spec,
+        }
+      }
       return {
         node: process.version,
         stateDir: dir,
@@ -93,6 +122,13 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
         librarySpec: info.spec,
         credentialPresent: existsSync(credentialFile(dir)),
         writesEnabled: cfg.writesEnabled === true,
+        skill: {
+          cliVersion: VERSION,
+          docVersion: meta?.version ?? null,
+          requiresCli: meta?.requiresCli ?? null,
+          docPath: join(root, 'SKILL.md'),
+          matchesCli: skillMatchesCli(meta, VERSION),
+        },
       }
     }
     if (name.startsWith('auth login ')) {

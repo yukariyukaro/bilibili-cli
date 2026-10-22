@@ -21,7 +21,7 @@ RUN apt-get update \
 FROM base AS cli-builder
 
 WORKDIR /build/cli
-COPY packages/bilibili-cli/package.json skills/bilibili-cli/package-lock.json ./
+COPY packages/bilibili-cli/package.json packages/bilibili-cli/package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY packages/bilibili-cli/tsconfig.json ./
@@ -29,8 +29,9 @@ COPY packages/bilibili-cli/src ./src
 COPY packages/bilibili-cli/cli ./cli
 COPY packages/bilibili-cli/scripts ./scripts
 COPY packages/bilibili-cli/CHANGELOG.md ./
-COPY packages/bilibili-cli/SKILL.md skills/bilibili-cli/README.md skills/bilibili-cli/LICENSE ./
-COPY packages/bilibili-cli/references ./references
+COPY packages/bilibili-cli/README.md packages/bilibili-cli/LICENSE ./
+COPY skills/bilibili-cli/SKILL.md ./SKILL.md
+COPY skills/bilibili-cli/references ./references
 COPY context-manifest.json /build/context-manifest.json
 
 RUN node scripts/compile.mjs \

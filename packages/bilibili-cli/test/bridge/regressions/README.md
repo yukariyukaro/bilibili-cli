@@ -18,7 +18,7 @@
 # cwd 应在仓库外；前缀必须来自统一安装（不在这里构建/安装）
 $env:BILIBILI_E2E_INSTALLED_PREFIX = "<统一安装前缀>"
 $env:BILIBILI_E2E_WORKDIR = "<仓库外工作目录>"       # 可选；缺省用系统临时目录
-node skills/bilibili-cli/test/bridge/regressions/run.mjs
+node packages/bilibili-cli/test/bridge/regressions/run.mjs
 ```
 
 - 可选：`--case=pending-allowlist-and-order`、`--filter=pending`。

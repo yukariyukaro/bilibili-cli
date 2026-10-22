@@ -2,7 +2,30 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
-## Unreleased
+## 2.0.0 — 2026-10-22
+
+### 破坏性变更
+
+- 公开命令 `skills cleanup` 移除（公开命令 27 → 26）；旧 Skill 清理改为仓库维护脚本
+  `scripts/skill-cleanup.mjs`，不随 npm 包发布，JSONL 也不再接受该命令。
+- 包版本进入 2.x，文档安装范围改为 `@^2`；原有 23 条 B 站内容命令、字段、默认值与
+  `schemaVersion:1` 不变。
+
+### 新增与变更
+
+- SKILL.md frontmatter 增加 `metadata.version` 与 `metadata.requiresCli`；`doctor` 增加 `skill` 段，
+  `skills list`/`skills read` 返回 `cliVersion`、`docVersion`、`docPath`、`requiresCli`、`matchesCli`。
+  `skills list` 保留 `version` 作为 CLI 版本兼容字段。
+- `doctor --setup` 真正返回精简运行时装配视图，不再是空开关。
+- `schema --json` 为 `bridge run` 的 `pollMs`、`ownerUids`、`url` 标注 `env`/`defaultSource`。
+- bridge 默认以当前 node + 包内 `dist/cli/bili.mjs` 自举；移除 PATH `bilibili` 依赖、
+  Windows `.cmd` shim 与 `BILIBILI_CLI_COMMAND`。
+- 用户文档统一为“检测 → 征得同意 → 全局安装 → 核验”；不做 CLI 的 npx 兜底；
+  安装命令只保留在 CLI 契约一处。
+- 构建不再生成不会进入 tarball 的 `skill/` 子目录；包描述只描述 CLI；
+  状态目录兼容命名写入契约。
+- 仓库结构：CLI 源码/测试/脚本移入 `packages/bilibili-cli/`，Skill 只保留
+  `skills/bilibili-cli/{SKILL.md,references}`，维护者文档移入 `docs/bilibili-cli/`。
 
 ### 测试
 
@@ -11,6 +34,25 @@
   支持宿主机（--native，默认）、容器（--docker，fetch 阶段联网、运行阶段 --network none）与 --check 静态校验；
   Docker 不可用报 unavailable，受限环境无法起子进程报 environment-blocked，都不算通过。
 - 新增包内脚本 test:release、test:release:check、test:release:docker；不改变已发布命令与输出。
+- 文档门禁：安装命令只允许一处、用户文档不得把 npx 当作 CLI 运行方式、命令表与 schema 对齐。
+- Docker 验收：bridge/release Dockerfile 同步新布局；release 静态检查新增 COPY 源存在断言。
+- MANUAL 用例改 TODO 并与 skip 分开统计；min_seqno 改为已知问题诊断；合并两个单行 re-export；
+  清理 E2E 改测维护脚本。
+- 新增 `.github/workflows/ci.yml`：PR 与 main 跑 typecheck + 离线 `npm test`；仅在 push main /
+  手动触发且配置 `BILIBILI_E2E_CREDENTIAL` 时，把专用测试账号凭证写入 runner 临时隔离目录，
+  再跑 CLI 与 bridge 的真实只读 E2E。
+- `auth status --json` 增加 `credentialPresent` 与 `stateDir`：自动化据此区分“没有登录态”和
+  “凭证可能过期”，不需要读取凭证正文。真实只读 E2E 在登录态缺失/失效时输出
+  `live.status=skipped` 并继续跑离线用例，不再把缺登录当成真实只读通过或直接失败。
+- skills 刷新工作流改用重构后的 `skills/bilibili-cli/SKILL.md` 与 `skills.sh.json` 引用校验，
+  只监听 `skills/**` 与 `skills.sh.json`，不再吞掉 skills CLI 的失败。
+- DSH review 的 `@dsh` 触发限定 OWNER/MEMBER/COLLABORATOR，避免任意评论者消耗 API key。
+
+### 验证
+
+- 本轮收尾验证（2026-10-22）：`npm run typecheck` exit 0；完整离线 `npm test` exit 0（15 个顶层组通过，bridge 失败 0 组，真实只读 `disabled`）。
+- `npm test` 内嵌的 bridge 离线 E2E（`node test/bridge/e2e/run.mjs readonly`，exit 0）：22 tests / 15 pass / 4 skip / 0 fail / 3 todo，`status=partial`；同轮 lifecycle 18 项中 1 pass / 17 skip。跳过项为登录态或真实双账号人工确认未提供，不计为通过。
+- 真实只读 E2E 本机未运行：需要 GitHub Secrets `BILIBILI_E2E_CREDENTIAL` 注入隔离登录态；bridge 真实只读另需仓库变量 `BILIBILI_E2E_OWNER_UID`（可选 `BILIBILI_E2E_TALKER`）。本机无可用登录态，按设计显式 skip，未宣称真实 B 站调用通过。
 
 ## 1.1.2 — 2026-10-22
 

@@ -41,8 +41,8 @@ function verifySnapshot() {
   assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0)
   let checked = 0
   for (const item of manifest.files) {
-    if (!item.path.startsWith('skills/bilibili-cli/test/bridge/')) continue
-    const target = join(CLI_ROOT, item.path.slice('skills/bilibili-cli/'.length))
+    if (!item.path.startsWith('packages/bilibili-cli/test/bridge/')) continue
+    const target = join(CLI_ROOT, item.path.slice('packages/bilibili-cli/'.length))
     assert.ok(existsSync(target), 'context 文件缺失：' + item.path)
     assert.equal(sha256File(target), item.sha256, 'context 文件哈希不一致：' + item.path)
     checked += 1

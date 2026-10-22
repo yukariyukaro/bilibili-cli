@@ -25,7 +25,7 @@ bilibili --version
 bilibili doctor --json
 ```
 
-从 Git 安装的 Skill 不带 npm 包生成的 `dist/`，因此不要指望在 Skill 目录直接运行包内 CLI，也**不需要也不应当**为此执行 `npm ci` 或编译：CLI 从官方 npm 包全局安装。首次缺少 `bilibili` 命令时，按 [CLI 契约](cli-contract.md) 的安装流程取得用户同意后安装并核验。只有维护者需要源码构建，见 [README](../README.md)。
+从 Git 安装的 Skill 不带 npm 包生成的 `dist/`，因此不要指望在 Skill 目录直接运行包内 CLI，也**不需要也不应当**为此执行 `npm ci` 或编译：CLI 从官方 npm 包全局安装。首次缺少 `bilibili` 命令时，按 [CLI 契约](cli-contract.md#安装与运行) 的安装流程取得用户同意后安装并核验。更新后可用 `bilibili doctor --json` 的 `skill.docVersion`、`skill.requiresCli` 与 `skill.matchesCli` 判断 Skill 文档与 CLI 是否同源。只有维护者需要源码构建，见 [仓库 README](https://github.com/yukariyukaro/bilibili-cli#readme)。
 
 ## 重新安装与 scope 隔离
 
@@ -52,17 +52,17 @@ npx skills remove bilibili-cli -g
 
 不要加 `-y` 跳过确认；不要在刚安装新版的同一 scope 执行，否则可能移除新版；不要由 agent 自动执行。官方 remove 维护 links/lock，但**不是可回滚备份**，也不会按旧版哈希区分新旧同名目录。`bilibili-agent` 只有历史名称文字记录，无可核验内容，清理程序不能自动识别；若确实安装，先由用户核实，再通过官方工具处理。
 
-## 可选：未受安装器管理的历史副本
+## 可选：未受安装器管理的历史副本（维护者脚本）
 
-只有确认某个完整旧副本不受安装器（npx、agent links、lock）管理时，才使用 CLI 的单目录清理程序。所有参数与 help/schema/JSONL 共用契约：
+只有确认某个完整旧副本不受安装器（npx、agent links、lock）管理时，才使用仓库内的维护脚本。该动作不属于公开 CLI，也不随 npm 包发布；需要先在 `packages/bilibili-cli` 构建 `dist/`：
 
 ```bash
-bilibili skills cleanup --path "/绝对路径/旧副本/bilibili-cli" --json
+node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "/绝对路径/旧副本/bilibili-cli" --json
 # 检查 preview 后，用户明确确认本次路径，再运行
-bilibili skills cleanup --path "/绝对路径/旧副本/bilibili-cli" --confirm --json
+node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "/绝对路径/旧副本/bilibili-cli" --confirm --json
 ```
 
-使用 PATH 上已安装的 `bilibili` 命令。Windows 使用完整盘符路径；不能使用相对路径、UNC、设备路径或含 `..` 的路径。
+Windows 使用完整盘符路径；不能使用相对路径、UNC、设备路径或含 `..` 的路径。脚本只接受 `--path`、`--confirm`、`--json`、`--jsonl`，不扫描用户目录。
 
 - 默认只返回 `{action:"preview",path,version}`，不创建状态、不备份、不移动内容。
 - 确认后返回 `{action:"quarantined",path,version,backupPath}`；仅把目录 rename 到同级 `.bilibili-cli-backup-<UUID>/skill`，不永久删除。
@@ -78,4 +78,4 @@ bilibili skills cleanup --path "/绝对路径/旧副本/bilibili-cli" --confirm 
 
 ## 验收边界
 
-清理工具由真实 pack/install/PATH 离线 E2E 验证 preview、隔离、回滚及拒绝路径，不触碰用户已安装的 Skill；测试 setup 需要 git 及本仓库固定历史提交，缺失即失败而非跳过，安装后运行产品不需要 git。精确文档 fixture 以 `.gitattributes` 固定 LF 字节，不随 Windows autocrlf 改写。安装器层面的升级与远端版本安装以实际执行的命令结果为准；未运行或未通过的检查须明确说明，不以本地工作树验收替代远端发布验证。
+清理脚本由真实 git 历史 fixture 与临时沙盒 E2E 验证 preview、隔离、回滚及拒绝路径，不触碰用户已安装的 Skill；测试 setup 需要 git 及本仓库固定历史提交，缺失即失败而非跳过，安装后运行产品不需要 git。精确文档 fixture 以 `.gitattributes` 固定 LF 字节，不随 Windows autocrlf 改写。安装器层面的升级与远端版本安装以实际执行的命令结果为准；未运行或未通过的检查须明确说明，不以本地工作树验收替代远端发布验证。

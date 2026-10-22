@@ -37,16 +37,18 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 // HERE = <repo>/packages/bilibili-cli/test/bridge/docker
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..', '..')
 const CLI_ROOT = resolve(HERE, '..', '..', '..')
+const SKILL_ROOT = resolve(REPO_ROOT, 'skills', 'bilibili-cli')
 const TEST_BRIDGE_ROOT = resolve(HERE, '..')
 const CONTAINER_ROOT = resolve(HERE, 'container')
 const EXIT = { PASS: 0, FAIL: 1, UNAVAILABLE: 2, USAGE: 64 }
-const EXPECTED_TOP_LEVEL = ['Dockerfile', '.dockerignore', 'context-manifest.json', 'skills']
-const CLI_TOP_FILES = ['package.json', 'package-lock.json', 'tsconfig.json', 'SKILL.md', 'README.md', 'LICENSE', 'CHANGELOG.md']
+const EXPECTED_TOP_LEVEL = ['Dockerfile', '.dockerignore', 'context-manifest.json', 'packages', 'skills']
+const CLI_TOP_FILES = ['package.json', 'package-lock.json', 'tsconfig.json', 'README.md', 'LICENSE', 'CHANGELOG.md']
 const CLI_DIRS = [
   ['src', ['.mts']],
   ['cli', ['.mjs']],
-  ['references', ['.md']],
 ]
+const SKILL_FILES = ['SKILL.md']
+const SKILL_DIRS = [['references', ['.md']]]
 const CLI_SCRIPT_FILES = ['scripts/compile.mjs', 'scripts/build.mjs', 'scripts/closure.mjs']
 const TEST_BRIDGE_EXTENSIONS = ['.mjs', '.md', '.txt']
 const REQUIRED_TEST_BRIDGE_FILES = [
@@ -197,6 +199,16 @@ function collectContextInputs() {
     if (!existsSync(abs)) throw new Error('缺少编译/发布脚本：' + name)
     add(abs, relative(REPO_ROOT, abs))
   }
+  for (const name of SKILL_FILES) {
+    const abs = join(SKILL_ROOT, name)
+    if (!existsSync(abs)) throw new Error('缺少 Skill 文档：' + name)
+    add(abs, relative(REPO_ROOT, abs))
+  }
+  for (const [dir, extensions] of SKILL_DIRS) {
+    const abs = join(SKILL_ROOT, dir)
+    if (!existsSync(abs)) throw new Error('缺少 Skill 文档目录：' + dir)
+    for (const item of walkFiles(abs, extensions)) add(item.abs, relative(REPO_ROOT, item.abs))
+  }
   for (const name of REQUIRED_TEST_BRIDGE_FILES) {
     if (!existsSync(join(TEST_BRIDGE_ROOT, name))) {
       throw new Error('缺少 test/bridge/' + name + '；ts-e2e 迁移尚未落盘，不能生成可运行的 Docker context')
@@ -272,8 +284,8 @@ function prepareContext() {
 }
 
 function validateCliPackage(context) {
-  const pkgPath = join(context.root, 'skills', 'bilibili-cli', 'package.json')
-  const lockPath = join(context.root, 'skills', 'bilibili-cli', 'package-lock.json')
+  const pkgPath = join(context.root, 'packages', 'bilibili-cli', 'package.json')
+  const lockPath = join(context.root, 'packages', 'bilibili-cli', 'package-lock.json')
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
   const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
   assert.equal(pkg.name, '@yukariyukaro/bilibili-cli')
@@ -323,12 +335,12 @@ function validateDockerfile(context) {
   assert.match(text, /npm install --global --prefix \/opt\/bilibili[^\n]*--ignore-scripts/, '必须把实际 tgz 安装到仓库外前缀')
   assert.match(text, /test -x \/opt\/bilibili\/bin\/bilibili/, 'builder 必须校验 POSIX bin 可执行')
   assert.match(text, /COPY --from=cli-builder \/opt\/bilibili \/opt\/bilibili/)
-  assert.match(text, /COPY skills\/bilibili-cli\/test .\/skills\/bilibili-cli\/test/, 'runtime 必须复制白名单后的 test/bridge 树')
-  assert.match(text, /COPY skills\/bilibili-cli\/cli .\/cli/, 'builder 必须包含 cli 兼容 shim')
-  assert.match(text, /COPY skills\/bilibili-cli\/CHANGELOG\.md/, 'builder 必须包含 CHANGELOG.md')
+  assert.match(text, /COPY packages\/bilibili-cli\/test .\/packages\/bilibili-cli\/test/, 'runtime 必须复制白名单后的 test/bridge 树')
+  assert.match(text, /COPY packages\/bilibili-cli\/cli .\/cli/, 'builder 必须包含 cli 兼容 shim')
+  assert.match(text, /COPY packages\/bilibili-cli\/CHANGELOG\.md/, 'builder 必须包含 CHANGELOG.md')
   assert.match(text, /COPY context-manifest\.json/)
   assert.match(text, /^USER node$/m)
-  assert.match(text, /CMD \["node", "\.\/skills\/bilibili-cli\/test\/bridge\/docker\/container\/entry\.mjs"\]/)
+  assert.match(text, /CMD \["node", "\.\/packages\/bilibili-cli\/test\/bridge\/docker\/container\/entry\.mjs"\]/)
   assert.doesNotMatch(text, /^\s*(?:COPY|ADD)\s+\.\s/m, '禁止把整个 build context 复制进镜像')
   assert.doesNotMatch(text, /^VOLUME\b/m)
   assert.doesNotMatch(text, /--mount=type=secret|--mount=type=ssh/m)
@@ -336,7 +348,7 @@ function validateDockerfile(context) {
   assert.doesNotMatch(text, /api\.bilibili\.com/i)
   const runtimeStage = text.slice(text.indexOf('FROM base AS runtime'))
   assert.doesNotMatch(runtimeStage, /^\s*RUN\s+.*\bnpm\b/m, 'runtime 不重新安装依赖')
-  assert.doesNotMatch(runtimeStage, /^\s*COPY skills\/bilibili-cli\/(?:src|scripts|tsconfig)/m, 'runtime 不得复制源码/工具链')
+  assert.doesNotMatch(runtimeStage, /^\s*COPY packages\/bilibili-cli\/(?:src|scripts|tsconfig)/m, 'runtime 不得复制源码/工具链')
   return true
 }
 
@@ -395,7 +407,7 @@ function nodeCheck(context) {
 }
 
 function validateEntry(context) {
-  const file = join(context.root, 'skills', 'bilibili-cli', 'test', 'bridge', 'docker', 'container', 'entry.mjs')
+  const file = join(context.root, 'packages', 'bilibili-cli', 'test', 'bridge', 'docker', 'container', 'entry.mjs')
   const text = readFileSync(file, 'utf8')
   assert.match(text, /offline\.mjs/, 'container entry 必须复用 test/bridge/offline.mjs，而不是另写重复 suite')
   assert.match(text, /for \(const variant of \['build'\]\)|\[\s*'build'\s*\]/, 'container entry 只运行 offline.mjs build')
@@ -407,7 +419,7 @@ function validateEntry(context) {
 }
 
 function validateTsConfig(context) {
-  const root = join(context.root, 'skills', 'bilibili-cli')
+  const root = join(context.root, 'packages', 'bilibili-cli')
   const tsconfig = JSON.parse(readFileSync(join(root, 'tsconfig.json'), 'utf8'))
   assert.equal(tsconfig.compilerOptions?.rootDir, 'src')
   assert.equal(tsconfig.compilerOptions?.outDir, 'dist')

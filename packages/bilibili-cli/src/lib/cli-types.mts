@@ -1,6 +1,14 @@
 /** 共享类型：命令契约、校验结果与 CLI 边界数据。 */
 
-export interface StringFieldDefinition {
+/** 契约字段的附加来源信息：schema 必须如实说明默认值可能来自环境变量。 */
+interface FieldMeta {
+  /** 该字段回退读取的环境变量名；只在调用方未显式传参时生效。 */
+  env?: string
+  /** default 的来源：字面量默认值，或由 env 提供的运行时默认值。 */
+  defaultSource?: 'literal' | 'env'
+}
+
+export interface StringFieldDefinition extends FieldMeta {
   type: 'string'
   description: string
   required?: boolean
@@ -10,7 +18,7 @@ export interface StringFieldDefinition {
   maxLength?: number
 }
 
-export interface IntegerFieldDefinition {
+export interface IntegerFieldDefinition extends FieldMeta {
   type: 'integer'
   description: string
   minimum: number
@@ -19,7 +27,7 @@ export interface IntegerFieldDefinition {
   default?: number
 }
 
-export interface BooleanFieldDefinition {
+export interface BooleanFieldDefinition extends FieldMeta {
   type: 'boolean'
   description: string
   required?: boolean

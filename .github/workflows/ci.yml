@@ -1,0 +1,186 @@
+name: CI
+
+# 每次 PR 与 main 合并都会运行：
+# - offline-e2e：构建、打包、真实安装、离线 E2E，不需要登录态。
+# - live-e2e：仅在 push main / workflow_dispatch 且配置了 BILIBILI_E2E_CREDENTIAL 时，
+#   把凭证写进 runner 临时隔离目录跑真实只读 E2E；缺失或失效时显式跳过，不伪装成通过。
+# PR 代码不接触登录态凭证：secret 只在非 PR 事件写入 runner，任务结束即删除。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PACKAGE_DIR: packages/bilibili-cli
+  NODE_VERSION: "22"
+
+jobs:
+  offline-e2e:
+    name: 离线 E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.PACKAGE_DIR }}/package-lock.json
+
+      - name: Install build toolchain
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run typecheck
+
+      - name: Offline end-to-end regression
+        working-directory: ${{ env.PACKAGE_DIR }}
+        env:
+          CI: "true"
+          BILIBILI_E2E_REPORT: ${{ runner.temp }}/ci/offline-e2e-report.json
+        run: npm test
+
+      - name: Upload offline report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-e2e-report
+          path: ${{ runner.temp }}/ci/offline-e2e-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  live-e2e:
+    name: 真实只读 E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.PACKAGE_DIR }}/package-lock.json
+
+      - name: Install build toolchain
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare isolated login state
+        id: login
+        if: github.event_name != 'pull_request'
+        env:
+          BILIBILI_E2E_CREDENTIAL: ${{ secrets.BILIBILI_E2E_CREDENTIAL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BILIBILI_E2E_CREDENTIAL:-}" ]; then
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice title=真实只读 E2E 跳过::未配置 BILIBILI_E2E_CREDENTIAL；本次只运行离线与安装类用例"
+            exit 0
+          fi
+          node <<'NODE'
+          const { mkdirSync, writeFileSync } = require('node:fs')
+          const raw = process.env.BILIBILI_E2E_CREDENTIAL
+          let parsed
+          try { parsed = JSON.parse(raw) } catch { throw new Error('BILIBILI_E2E_CREDENTIAL 不是合法 JSON') }
+          for (const key of ['sessdata', 'bili_jct', 'dedeuserid']) {
+            if (typeof parsed[key] !== 'string' || parsed[key].length === 0) throw new Error('BILIBILI_E2E_CREDENTIAL 缺少字段：' + key)
+          }
+          const dir = process.env.RUNNER_TEMP + '/e2e-state/agent'
+          mkdirSync(dir, { recursive: true, mode: 0o700 })
+          writeFileSync(dir + '/bili_credential.json', JSON.stringify({
+            sessdata: parsed.sessdata,
+            bili_jct: parsed.bili_jct,
+            buvid3: typeof parsed.buvid3 === 'string' ? parsed.buvid3 : '',
+            dedeuserid: parsed.dedeuserid,
+          }), { mode: 0o600 })
+          console.log('隔离登录态已写入 runner 临时目录（内容不输出）')
+          NODE
+          echo "present=true" >> "${GITHUB_OUTPUT}"
+          echo "home=${RUNNER_TEMP}/e2e-state/agent" >> "${GITHUB_OUTPUT}"
+
+      - name: CLI real read-only E2E
+        if: steps.login.outputs.present == 'true'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        env:
+          CI: "true"
+          BILIBILI_E2E: "1"
+          BILIBILI_SKILL_HOME: ${{ steps.login.outputs.home }}
+          BILIBILI_E2E_REPORT: ${{ runner.temp }}/ci/cli-live-report.json
+        run: npm test
+
+      - name: Build installable artifact for bridge E2E
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release/bilibili-cli"
+          node scripts/build.mjs "${OUT}"
+          npm pack "${OUT}" --pack-destination "${RUNNER_TEMP}/release" --json > "${RUNNER_TEMP}/release/pack.json"
+          TGZ="${RUNNER_TEMP}/release/$(node -p "require('${RUNNER_TEMP}/release/pack.json')[0].filename")"
+          npm install --global --prefix "${RUNNER_TEMP}/prefix" --ignore-scripts --no-audit --no-fund "${TGZ}"
+
+      - name: Bridge E2E (installed CLI)
+        working-directory: ${{ env.PACKAGE_DIR }}
+        env:
+          BILIBILI_E2E_INSTALLED_PREFIX: ${{ runner.temp }}/prefix
+          BILIBILI_E2E_WORKDIR: ${{ runner.temp }}/bridge-work
+          BILIBILI_E2E_AGENT_HOME: ${{ steps.login.outputs.home }}
+          BILIBILI_E2E_OWNER_UID: ${{ vars.BILIBILI_E2E_OWNER_UID }}
+          LOGIN_PRESENT: ${{ steps.login.outputs.present }}
+        run: |
+          set -euo pipefail
+          if [ "${LOGIN_PRESENT}" = "true" ] && [ -n "${BILIBILI_E2E_OWNER_UID:-}" ]; then
+            export BILIBILI_E2E_READONLY=1
+            echo "::notice title=桥接真实只读已启用::登录态与 OWNER_UID 均已配置"
+          else
+            echo "::notice title=桥接真实只读跳过::缺少登录态或仓库变量 BILIBILI_E2E_OWNER_UID；只运行离线安装与控制面用例"
+          fi
+          node test/bridge/e2e/run.mjs readonly
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: live-e2e-reports
+          path: |
+            ${{ runner.temp }}/ci
+            ${{ runner.temp }}/bridge-work/bridge-e2e-readonly-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Remove isolated login state
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/e2e-state"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "### 真实只读 E2E"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 触发 | ${{ github.event_name }} |"
+            echo "| 登录态 | ${{ steps.login.outputs.present == 'true' && '已注入隔离凭证' || '未注入（真实只读跳过）' }} |"
+            echo "| 桥接真实只读 | ${{ (steps.login.outputs.present == 'true' && vars.BILIBILI_E2E_OWNER_UID != '') && '已启用' || '跳过' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

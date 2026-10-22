@@ -10,9 +10,9 @@
  * 退出码：有 failed => 1；filter 未匹配 => 2；全部通过 => 0。
  *
  * 用法（cwd 应在仓库外）：
- *   node skills/bilibili-cli/test/bridge/regressions/run.mjs
- *   node skills/bilibili-cli/test/bridge/regressions/run.mjs --case=pending-allowlist-and-order
- *   node skills/bilibili-cli/test/bridge/regressions/run.mjs --filter=pending
+ *   node packages/bilibili-cli/test/bridge/regressions/run.mjs
+ *   node packages/bilibili-cli/test/bridge/regressions/run.mjs --case=pending-allowlist-and-order
+ *   node packages/bilibili-cli/test/bridge/regressions/run.mjs --filter=pending
  *   import { runner } from './run.mjs'; await runner({ env, cwd })
  *
  * 前置：BILIBILI_E2E_INSTALLED_PREFIX 指向统一安装前缀；缺少时两个 case 记 failed。
@@ -330,7 +330,7 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(imp
 if (isMain) {
   const options = parseArgs(process.argv.slice(2))
   if (options.help) {
-    process.stderr.write('用法：node skills/bilibili-cli/test/bridge/regressions/run.mjs [--case=<name>|--filter=<substr>]\n')
+    process.stderr.write('用法：node packages/bilibili-cli/test/bridge/regressions/run.mjs [--case=<name>|--filter=<substr>]\n')
   } else {
     try {
       const { result, exitCode } = await runner({ env: process.env, cwd: process.cwd(), filter: options.filter })

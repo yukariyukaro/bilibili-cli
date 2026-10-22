@@ -24,9 +24,12 @@ concurrency:
 
 jobs:
   review:
+    # 任何 GitHub 用户都能评论，但只有维护者/协作者能用 @dsh 触发带 API key 的任务。
     if: >-
       (github.event_name == 'pull_request_target' && github.event.pull_request.draft == false) ||
       (github.event.sender.type != 'Bot' &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+        github.event.comment.author_association || github.event.review.author_association) &&
       contains(github.event.comment.body || github.event.review.body, '@dsh'))
     runs-on: ubuntu-latest
     timeout-minutes: 30

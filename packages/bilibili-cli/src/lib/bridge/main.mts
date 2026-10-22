@@ -95,7 +95,6 @@ interface BridgeConfig {
   pollMs: number
   url: string
   statePath: string
-  cliCommand: string
 }
 
 function configError(message: string, cause?: unknown): LifecycleError {
@@ -155,7 +154,6 @@ function readConfig(args: BridgeRunArgs): BridgeConfig {
     pollMs,
     url,
     statePath,
-    cliCommand: process.env.BILIBILI_CLI_COMMAND || 'bilibili',
   }
 }
 
@@ -334,7 +332,6 @@ export class BridgeRuntime {
 
     this.gate = new PollGate()
     this.backend = new BilibiliCliBackend({
-      command: config.cliCommand,
       env: process.env,
       logger: this.diagnostics,
     })

@@ -28,7 +28,7 @@ export const LEGACY_COMMANDS = [
 ]
 
 export const BRIDGE_COMMANDS = ['bridge run', 'bridge status', 'bridge stop']
-export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS, 'skills cleanup']
+export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS]
 
 export const BRIDGE_RUN_FIELDS = ['ownerUids', 'pollMs', 'statePath', 'url']
 export const BRIDGE_STATE_FIELDS = ['statePath']
@@ -49,7 +49,7 @@ export function assertSchemaContract(schema, { version } = {}) {
   assert.deepEqual(
     schema.commands.map((entry) => entry.name).sort(),
     [...ALL_COMMANDS].sort(),
-    'schema 命令集合必须等于旧23个 + bridge三条 + skills cleanup；不要用数量硬编码掩盖缺失/多余命令',
+    'schema 命令集合必须等于旧23个 + bridge三条；skills cleanup 已迁出公开 CLI',
   )
 
   const run = commandByName(schema, 'bridge run')
@@ -62,6 +62,10 @@ export function assertSchemaContract(schema, { version } = {}) {
   assert.equal(run.fields.pollMs.type, 'integer')
   assert.equal(run.fields.pollMs.minimum, 6000)
   assert.equal(run.fields.pollMs.default, 6000)
+  assert.equal(run.fields.pollMs.defaultSource, 'env', 'schema 必须说明 pollMs 默认来自环境变量')
+  assert.equal(run.fields.pollMs.env, 'BILIBILI_POLL_MS')
+  assert.equal(run.fields.ownerUids.env, 'BILIBILI_OWNER_UID')
+  assert.equal(run.fields.url.env, 'CC_CONNECT_BRIDGE_URL')
   assert.equal(Object.hasOwn(run.fields, 'token'), false, 'token 只能走 CC_CONNECT_BRIDGE_TOKEN 环境变量，不能出现在 schema/argv')
 
   for (const name of ['bridge status', 'bridge stop']) {

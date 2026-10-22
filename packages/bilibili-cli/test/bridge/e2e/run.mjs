@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, writeFil
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { authStatus } from '../lib/cli.mjs'
 
 const e2eDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(e2eDir, '..', '..', '..', '..', '..')
@@ -289,6 +290,48 @@ if (configErrors.length) {
   process.exit(2)
 }
 
+/** 登录态预检：只关心能否用于真实只读，不读取或打印凭证内容。 */
+async function probeLogin(installed) {
+  const home = process.env.BILIBILI_E2E_AGENT_HOME || ''
+  try {
+    const auth = await authStatus(home, { installed, cwd: workdir })
+    if (auth.logged_in === true) {
+      return { status: 'ok', uid: auth.uid ?? null, credentialPresent: auth.credentialPresent !== false }
+    }
+    return { status: 'unavailable', reason: auth.message || '未登录或凭证不可用', credentialPresent: auth.credentialPresent ?? null }
+  } catch (error) {
+    return { status: 'error', reason: String(error?.message || error) }
+  }
+}
+
+// 真实只读依赖登录态：缺失或失效时跳过真实用例，离线安装与控制面用例继续跑。
+const live = readOnlyEnabled ? await probeLogin(installed) : { status: 'not-requested' }
+if (readOnlyEnabled && live.status !== 'ok') {
+  console.error('[bridge-e2e] 真实只读登录态不可用：' + (live.reason || live.status) + '；真实只读用例将 skip')
+  if (process.env.BILIBILI_E2E_REQUIRE_LOGIN === '1') {
+    const report = {
+      schemaVersion: 1,
+      type: 'bridge-e2e-summary',
+      mode,
+      status: 'config-error',
+      at: new Date().toISOString(),
+      workdir,
+      installPrefix: process.env.BILIBILI_E2E_INSTALLED_PREFIX || null,
+      gates: { readOnly: readOnlyEnabled, writeRequestedIgnored: writeRequested, legacyE2EIgnored },
+      counts: { tests: 0, pass: 0, fail: 0, cancelled: 0, skipped: 0, todo: 0 },
+      exitCode: 2,
+      live,
+      errors: ['BILIBILI_E2E_REQUIRE_LOGIN=1 但登录态不可用：' + (live.reason || live.status)],
+      testFiles: testFiles(),
+      evidenceBoundary: '登录态预检失败发生在测试启动前；没有执行任何真实 B 站读写。',
+      notes: ['设置 BILIBILI_E2E_REQUIRE_LOGIN=1 时，登录态不可用按配置错误处理。'],
+    }
+    const path = writeReport(workdir, report)
+    console.error('[bridge-e2e] report=' + path)
+    process.exit(2)
+  }
+}
+
 let result
 try {
   result = await runTests(workdir, installed)
@@ -298,7 +341,7 @@ try {
 }
 
 const counts = parseTap(result.stdout)
-const status = counts.fail > 0 || counts.cancelled > 0 || result.code !== 0
+let status = counts.fail > 0 || counts.cancelled > 0 || result.code !== 0
   ? 'failed'
   : counts.tests === 0
     ? 'unavailable'
@@ -309,6 +352,9 @@ const status = counts.fail > 0 || counts.cancelled > 0 || result.code !== 0
         : counts.skipped > 0 || counts.todo > 0
           ? 'partial'
           : 'passed'
+
+// 登录态不可用时即使 TAP 没有 skip，也不能报告真实只读通过。
+if (readOnlyEnabled && live.status !== 'ok' && status === 'passed') status = 'partial'
 
 const report = {
   schemaVersion: 1,
@@ -323,13 +369,18 @@ const report = {
     writeRequestedIgnored: writeRequested,
     legacyE2EIgnored,
   },
+  live,
   counts,
   exitCode: result.code,
   signal: result.signal ?? null,
   testFiles: testFiles(),
   evidenceBoundary: '离线安装/本地控制面协议 + 显式启用的真实只读 CLI；真实私信往返未自动执行，真实写为 0；接口受理不等于接收方已读。',
   notes: [
-    readOnlyEnabled ? '真实只读已显式启用。' : '真实只读未启用：只运行离线契约；设置 BILIBILI_E2E_READONLY=1 后才访问 B 站。',
+    readOnlyEnabled
+      ? live.status === 'ok'
+        ? '真实只读已显式启用，登录态预检通过。'
+        : '真实只读已显式启用，但登录态不可用；真实用例 skip，离线用例仍执行。'
+      : '真实只读未启用：只运行离线契约；设置 BILIBILI_E2E_READONLY=1 后才访问 B 站。',
     'TODO 表示已知实现缺口，不是通过；SKIP 表示条件不满足或需要人工。',
     '没有自动开启 writesEnabled，也没有设置 confirmSend=true。',
   ],

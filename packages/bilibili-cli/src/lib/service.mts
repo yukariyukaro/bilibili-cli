@@ -126,18 +126,34 @@ function requireCredential(dir: string): Credential {
 
 async function authStatus(dir: string): Promise<unknown> {
   const credential = loadCredential(dir)
-  if (!credential) return { logged_in: false, message: '未登录，请执行 bilibili auth login start' }
+  // credentialPresent 只表示状态目录里有可解析的凭证文件；是否仍然有效由 B 站接口判定。
+  // 自动化（E2E/CI）据此区分“没有登录态”和“登录态可能过期”，不需要读取凭证正文。
+  if (!credential) {
+    return {
+      logged_in: false,
+      credentialPresent: false,
+      stateDir: dir,
+      message: '未登录，请执行 bilibili auth login start',
+    }
+  }
   try {
     const info: unknown = await get_self_info(credential)
     const data = toRecord(info)
     return {
       logged_in: true,
+      credentialPresent: true,
+      stateDir: dir,
       uid: nullishOr(data.mid, credential.dedeuserid),
       username: nullishOr(data.name, ''),
       message: '凭证有效',
     }
   } catch {
-    return { logged_in: false, message: '凭证可能已过期，请重新执行 bilibili auth login start' }
+    return {
+      logged_in: false,
+      credentialPresent: true,
+      stateDir: dir,
+      message: '凭证可能已过期或网络不可用，请重新执行 bilibili auth login start',
+    }
   }
 }
 

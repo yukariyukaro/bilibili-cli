@@ -26,7 +26,5 @@ const lock = JSON.parse(readFileSync(join(source, 'package-lock.json'), 'utf8'))
 lock.packages[''] = { ...pkg }
 for (const [path, entry] of Object.entries(lock.packages)) if (path && entry.dev === true) delete lock.packages[path]
 writeFileSync(join(target, 'package-lock.json'), JSON.stringify(lock, null, 2) + '\n')
-mkdirSync(join(target, 'skill'), { recursive: true })
-for (const name of ['SKILL.md', 'references']) cpSync(join(skillRoot, name), join(target, 'skill', name), { recursive: true })
 assertClosure(target)
 process.stdout.write('生成编译后的 CLI、bridge 与纯文档技能：' + target + '\n')

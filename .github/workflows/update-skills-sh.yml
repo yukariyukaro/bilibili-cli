@@ -1,8 +1,16 @@
 name: refresh-skills-sh
 
+# skills.sh 按 GitHub 仓库内容建立索引，没有公开的“发布 API”。这里做两件事：
+# 1) 校验仓库内 Skill 元数据与 skills.sh.json 的引用一致；
+# 2) 用官方 skills CLI 触发一次安装/列举，让索引与可发现性在每次 Skill 变更后刷新。
+# 只监听 skills/** 与 skills.sh.json，避免纯文档提交也跑数分钟的网络任务。
+
 on:
   push:
     branches: [main]
+    paths:
+      - 'skills/**'
+      - 'skills.sh.json'
   workflow_dispatch:
 
 permissions:
@@ -12,31 +20,67 @@ concurrency:
   group: refresh-skills-sh
   cancel-in-progress: true
 
+env:
+  SKILLS_CLI: skills@1.7.4
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
       - name: Validate skill metadata
         run: |
-          test -f skills.sh.json
-          test -f skills/bilibili-cli/SKILL.md
-          node -e "const s=require('./skills.sh.json'); if(!Array.isArray(s.groupings)) { console.error('skills.sh.json missing groupings'); process.exit(1) } console.log('skills.sh.json ok')"
-          node -e "const p=require('./skills/bilibili-cli/package.json'); if(!p.version) process.exit(1); console.log('skill version', p.version)"
+          node <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const meta = JSON.parse(fs.readFileSync('skills.sh.json', 'utf8'))
+          if (!Array.isArray(meta.groupings)) throw new Error('skills.sh.json 缺少 groupings 数组')
+          const listed = meta.groupings.flatMap((group) => Array.isArray(group.skills) ? group.skills : [])
+          if (listed.length === 0) throw new Error('skills.sh.json 没有登记任何 skill')
+          const dirs = fs.readdirSync('skills', { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+          for (const name of listed) {
+            if (!dirs.includes(name)) throw new Error('groupings 引用了不存在的 skills/' + name)
+            const docPath = path.join('skills', name, 'SKILL.md')
+            if (!fs.existsSync(docPath)) throw new Error('缺少 ' + docPath)
+            const doc = fs.readFileSync(docPath, 'utf8')
+            const front = doc.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+            if (!front) throw new Error(docPath + ' 缺少 frontmatter')
+            if (!/^name:\s*\S+/m.test(front[1])) throw new Error(docPath + ' frontmatter 缺少 name')
+            if (!/^description:\s*\S+/m.test(front[1])) throw new Error(docPath + ' frontmatter 缺少 description')
+            const refs = path.join('skills', name, 'references')
+            if (fs.existsSync(refs) && fs.readdirSync(refs).length === 0) throw new Error(refs + ' 为空')
+          }
+          for (const dir of dirs) {
+            if (!listed.includes(dir)) console.log('warning: skills/' + dir + ' 未登记到 skills.sh.json')
+          }
+          console.log('skills metadata ok: ' + listed.join(', '))
+          NODE
 
       - name: Force skills.sh refresh
-        # skills.sh has no public revalidate endpoint: repo pages are built from
-        # GitHub content plus skills CLI telemetry. Emit a fresh install event
-        # and warm the repo page on every main commit so the listing refreshes.
-        run: |
-          npx --yes skills@latest add yukariyukaro/bilibili-cli -g -y
-          curl -fsSL -o /dev/null "https://www.skills.sh/yukariyukaro/bilibili-cli" || true
+        run: npx --yes "${SKILLS_CLI}" add yukariyukaro/bilibili-cli -g -y
 
-      - name: Verify installable from GitHub
+      - name: Verify discoverable from GitHub
         run: |
-          npx --yes skills@latest add yukariyukaro/bilibili-cli -l
+          set -euo pipefail
+          OUT="$(npx --yes "${SKILLS_CLI}" add yukariyukaro/bilibili-cli -l -y 2>&1)"
+          printf '%s\n' "${OUT}"
+          if printf '%s\n' "${OUT}" | grep -qiE 'failed|canceled|error:'; then
+            echo "skills CLI 列举失败；skills.sh 收录未刷新" >&2
+            exit 1
+          fi
+          printf '%s\n' "${OUT}" | grep -qi 'bilibili-cli' || {
+            echo "skills CLI 未列出 bilibili-cli" >&2
+            exit 1
+          }

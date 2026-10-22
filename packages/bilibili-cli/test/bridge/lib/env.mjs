@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-/** skills/bilibili-cli/test/bridge/lib -> skills/bilibili-cli */
+/** packages/bilibili-cli/test/bridge/lib -> packages/bilibili-cli */
 export const CLI_ROOT = resolve(HERE, '..', '..', '..')
 /** -> 仓库根 */
 export const REPO_ROOT = resolve(CLI_ROOT, '..', '..')

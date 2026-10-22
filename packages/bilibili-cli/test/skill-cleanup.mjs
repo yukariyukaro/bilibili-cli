@@ -2,26 +2,26 @@
 /**
  * 旧版 Skill 清理安装产物 E2E（红灯优先）。
  *
- * 只通过安装前缀 PATH 的 bilibili 调用 skills cleanup --path <ABS> [--confirm] --json
- * 和 --jsonl；不 import 产品实现、不连接 B 站、不读取真实凭证。
- * 纯文档 fixture 为精确历史副本；完整目录从固定本仓库 git blob 构建到临时沙盒。
- * 测试setup需要git与49c530e历史，缺失明确失败，不跳过；安装产品运行时不需要git。
+ * 通过维护者脚本 node packages/bilibili-cli/scripts/skill-cleanup.mjs 调用
+ * --path <ABS> [--confirm] --json 和 --jsonl；不 import 产品实现、不连接 B 站、
+ * 不读取真实凭证。纯文档 fixture 为精确历史副本；完整目录从固定本仓库 git
+ * blob 构建到临时沙盒。测试setup需要git与49c530e历史，缺失明确失败，不跳过。
  *
  * 用法：
- *   BILIBILI_E2E_INSTALLED_PREFIX=<prefix> node skills/bilibili-cli/test/skill-cleanup.mjs
+ *   node packages/bilibili-cli/test/skill-cleanup.mjs
  *
  * stdout 只输出一行 JSON summary；进度/失败摘要写 stderr。
- * 旧安装（没有 skills cleanup）应保持红灯 exit 1；新包实现后同一断言转绿。
  */
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { cpSync, existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLI_ROOT, REPO_ROOT, isInsideRepo, resolveInstalledPrefix } from './bridge/lib/env.mjs'
-import { runBilibili, runJsonl } from './bridge/lib/cli.mjs'
+
+const CLEANUP_SCRIPT = join(CLI_ROOT, 'scripts', 'skill-cleanup.mjs')
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = join(HERE, 'fixtures', 'legacy-skill-1.0.0')
@@ -147,8 +147,34 @@ function assertUnchanged(dir, expected, message) {
   assert.deepEqual(snapshot(dir), expected, message)
 }
 
-async function cleanup(args, { home } = {}) {
-  return runBilibili(['skills', 'cleanup', ...args, '--json'], { installed, home, cwd })
+function cleanup(args, { home } = {}) {
+  const result = spawnSync(process.execPath, [CLEANUP_SCRIPT, ...args, '--json'], {
+    cwd,
+    env: { ...process.env, BILIBILI_SKILL_HOME: home || '' },
+    encoding: 'utf8',
+    timeout: 120000,
+  })
+  let envelope
+  try { envelope = JSON.parse(result.stdout) } catch {
+    envelope = { ok: false, error: { code: 'NON_JSON', message: (result.stdout || '') + (result.stderr || '') } }
+  }
+  return { code: result.status, stdout: result.stdout || '', stderr: result.stderr || '', envelope }
+}
+
+function cleanupJsonl(rows, { home } = {}) {
+  const result = spawnSync(process.execPath, [CLEANUP_SCRIPT, '--jsonl'], {
+    cwd,
+    input: rows.map((row) => JSON.stringify(row)).join('\n') + '\n',
+    env: { ...process.env, BILIBILI_SKILL_HOME: home || '' },
+    encoding: 'utf8',
+    timeout: 120000,
+  })
+  return {
+    code: result.status,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    rows: (result.stdout || '').trim().split('\n').filter(Boolean).map(JSON.parse),
+  }
 }
 
 function assertGuidance(result, label) {
@@ -178,7 +204,6 @@ async function caseRun(name, fn) {
 }
 
 try {
-  let commandAvailable = true
   const home = join(workroot, 'home')
   mkdirSync(home, { recursive: true })
 
@@ -193,10 +218,6 @@ try {
   await caseRun('默认预览零改动：action=preview、无 backup、源文件不变', async () => {
     const before = snapshot(previewFixture.target)
     const result = await cleanup(['--path', previewFixture.target], { home })
-    if (result.code === 2 && result.envelope.error?.code === 'USAGE') {
-      commandAvailable = false
-      throw new Error('安装产物缺少 skills cleanup（旧 1.0 预期红灯）：' + result.envelope.error.message)
-    }
     assert.equal(result.code, 0, result.stderr)
     assert.equal(result.envelope.ok, true)
     assert.equal(result.envelope.result.action, 'preview')
@@ -278,8 +299,8 @@ try {
     const wrongCode = expectReject(wrongResult, '错误 basename')
     assertUnchanged(wrongPath, wrongBefore, '错误 basename 不得移动')
 
-    const protectedDir = installed.packageDir
-    assert.ok(existsSync(protectedDir), '安装产物 packageDir 不存在')
+    const protectedDir = CLI_ROOT
+    assert.ok(existsSync(protectedDir), 'CLI 包根不存在')
     const protectedBefore = snapshot(join(protectedDir, 'dist'))
     const protectedResult = await cleanup(['--path', protectedDir, '--confirm'], { home })
     const protectedCode = expectReject(protectedResult, '受保护执行 package 路径')
@@ -421,11 +442,11 @@ try {
   await caseRun('JSONL 预览：ok:true、action=preview、源不变', async () => {
     const fixture = fixtureCopy('jsonl')
     const before = snapshot(fixture.target)
-    const result = await runJsonl([{
+    const result = cleanupJsonl([{
       id: 'skills-cleanup-preview',
       command: 'skills cleanup',
       args: { path: fixture.target },
-    }], { installed, home, cwd })
+    }], { home })
     assert.equal(result.code, 0, result.stderr)
     assert.equal(result.rows.length, 1)
     const row = result.rows[0]
@@ -440,7 +461,7 @@ try {
     return { result: row.result }
   })
 
-  if (!commandAvailable) log('安装产物缺少 skills cleanup；其余 case 若也失败属于预期红灯')
+  if (results.some((result) => result.name.startsWith('默认预览') && result.status !== 'passed')) log('维护脚本的预览用例未通过；请先 npm run compile')
 } finally {
   if (KEEP) log('保留临时沙盒：' + workroot)
   else rmSync(workroot, { recursive: true, force: true })
@@ -450,16 +471,17 @@ const failed = results.filter((result) => result.status === 'failed')
 const summary = {
   schemaVersion: 1,
   type: 'skill-cleanup-e2e-summary',
-  scope: 'installed-skill-cleanup',
+  scope: 'maintainer-skill-cleanup',
   at: new Date().toISOString(),
   installedPrefix: installed.ok ? installed.prefix : null,
+  script: CLEANUP_SCRIPT,
   workdir: workroot,
-  commandAvailable: results.find((result) => result.name.startsWith('默认预览'))?.status === 'passed',
+  scriptAvailable: results.find((result) => result.name.startsWith('默认预览'))?.status === 'passed',
   total: results.length,
   passed: results.length - failed.length,
   failed: failed.length,
   cases: results,
-  evidenceBoundary: '安装产物 PATH 调用 + 静态历史纯文档 fixture；不连接 B 站、不读取真实凭证、不伪造 B 站业务成功。',
+  evidenceBoundary: '维护脚本真实调用 + 静态历史纯文档 fixture；不连接 B 站、不读取真实凭证、不伪造 B 站业务成功。',
 }
 process.stdout.write(JSON.stringify(summary) + '\n')
 process.exitCode = failed.length ? 1 : 0
