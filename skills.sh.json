@@ -4,7 +4,7 @@
   "groupings": [
     {
       "title": "Bilibili",
-      "description": "B 站研究、字幕/评论读取、私信与 bridge 监听的 Agent 技能。",
+      "description": "B 站研究、字幕/评论读取、私信与 bridge 监听的 Agent 技能；需要 bilibili CLI 2.0.x。",
       "skills": [
         "bilibili-cli"
       ]

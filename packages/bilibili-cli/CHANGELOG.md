@@ -54,12 +54,15 @@
 - skills 刷新工作流改用重构后的 `skills/bilibili-cli/SKILL.md` 与 `skills.sh.json` 引用校验，
   只监听 `skills/**` 与 `skills.sh.json`，不再吞掉 skills CLI 的失败。
 - DSH review 的 `@dsh` 触发限定 OWNER/MEMBER/COLLABORATOR，避免任意评论者消耗 API key。
+- 发布工作流改为 main 推送触发 + npm trusted publishing（OIDC）：版本未发布时构建、验收并发布，
+  已存在则跳过；不再依赖 tag 或 `NPM_TOKEN`。
 
 ### 验证
 
 - 本轮收尾验证（2026-10-22）：`npm run typecheck` exit 0；完整离线 `npm test` exit 0（15 个顶层组通过，bridge 失败 0 组，真实只读 `disabled`）。
+- 真实只读（账号 A，2.0.0 本地构建）：`BILIBILI_E2E=1 npm test` exit 0（16 组，真实只读 passed；热门、搜索、视频、字幕、评论、用户、通知、私信状态与 `dm send --dry-run` 均通过）。
 - `npm test` 内嵌的 bridge 离线 E2E（`node test/bridge/e2e/run.mjs readonly`，exit 0）：22 tests / 15 pass / 4 skip / 0 fail / 3 todo，`status=partial`；同轮 lifecycle 18 项中 1 pass / 17 skip。跳过项为登录态或真实双账号人工确认未提供，不计为通过。
-- 真实只读 E2E 本机未运行：需要 GitHub Secrets `BILIBILI_E2E_CREDENTIAL` 注入隔离登录态；bridge 真实只读另需仓库变量 `BILIBILI_E2E_OWNER_UID`（可选 `BILIBILI_E2E_TALKER`）。本机无可用登录态，按设计显式 skip，未宣称真实 B 站调用通过。
+- CI 的 live job 因未配置 `BILIBILI_E2E_CREDENTIAL` 仍 skip，不能当作真实只读通过；本机已用账号 A 跑通真实只读。真实私信读取因未设置 `BILIBILI_E2E_TALKER` 跳过；bridge 真实只读仍未跑，需要互关账号 B 的 `BILIBILI_E2E_OWNER_UID`（可选 `BILIBILI_E2E_OWNER_HOME`）。
 
 ## 1.1.2 — 2026-10-22
 
