@@ -2,6 +2,22 @@
 
 更新时间：2026-10-22
 
+## GitHub 执行索引
+
+检查点源码已推送：[aaafa3f](https://github.com/yukariyukaro/bilibili-cli/commit/aaafa3fb4ea087ae270f8ce44fad8f8ee0b76a96)。所有剩余事项见 [总追踪 #21](https://github.com/yukariyukaro/bilibili-cli/issues/21)（20 条执行 issues，含依赖和验收）。U05/U06 与 U19 的本地部分已完成，不重复立项。当前 1.1.0 仍 Unreleased，真实 AI 闭环未完成。
+
+| 领域 | Issues |
+| --- | --- |
+| npm/远端 Skill/全局安装 | [#1](https://github.com/yukariyukaro/bilibili-cli/issues/1) |
+| Skill 交付与 CLI 一致性 | [#2](https://github.com/yukariyukaro/bilibili-cli/issues/2)、[#3](https://github.com/yukariyukaro/bilibili-cli/issues/3) |
+| 架构、生命周期 | [#4](https://github.com/yukariyukaro/bilibili-cli/issues/4)、[#5](https://github.com/yukariyukaro/bilibili-cli/issues/5) |
+| min_seqno 红灯、精度、分页 | [#6](https://github.com/yukariyukaro/bilibili-cli/issues/6)、[#7](https://github.com/yukariyukaro/bilibili-cli/issues/7)、[#8](https://github.com/yukariyukaro/bilibili-cli/issues/8) |
+| 可靠存储与消息策略 | [#9](https://github.com/yukariyukaro/bilibili-cli/issues/9)、[#10](https://github.com/yukariyukaro/bilibili-cli/issues/10) |
+| agent/会话、自动策略、受控执行 | [#11](https://github.com/yukariyukaro/bilibili-cli/issues/11)、[#12](https://github.com/yukariyukaro/bilibili-cli/issues/12)、[#13](https://github.com/yukariyukaro/bilibili-cli/issues/13) |
+| 评论与真实 E2E | [#14](https://github.com/yukariyukaro/bilibili-cli/issues/14)、[#15](https://github.com/yukariyukaro/bilibili-cli/issues/15) |
+| 控制台、Skill setup、宿主插件 | [#16](https://github.com/yukariyukaro/bilibili-cli/issues/16)、[#17](https://github.com/yukariyukaro/bilibili-cli/issues/17)、[#18](https://github.com/yukariyukaro/bilibili-cli/issues/18) |
+| 资源实测、Linux Docker/CI | [#19](https://github.com/yukariyukaro/bilibili-cli/issues/19)、[#20](https://github.com/yukariyukaro/bilibili-cli/issues/20) |
+
 > **本次快照验收**：scoped 包的 npm ci、typecheck、完整 npm test 均 exit 0，14 顶层组通过（含新增 tarball npm exec）、bridge 失败 0；证据 Pd62uK。只读真实红灯仍保留，不以本次离线绿灯宣称真实 AI/评论闭环通过。
 
 > **当前交接**：用户要求保存当前实现并 commit/push，将阶段 2.5/3–5 与发布、真实验收缺口转为 GitHub issues；本轮不发布 npm、不继续实现 AI 回复。阶段 1/2 离线迁移已完成，真实只读 18 pass / 1 fail / 3 skip（exit 1）红灯保留，真实 bridge 入站与 AI 回复闭环未验收，详见 [测试台账](test/bridge/BASELINE.md)。以下“未 commit/push、远端49c530e、真实只读未执行”等是历史时点记录，不能作为推送后的实时状态。

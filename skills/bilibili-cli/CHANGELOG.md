@@ -18,6 +18,7 @@
 
 ### 文档整理
 
+- 将剩余路线图实际登记为 [GitHub 总追踪 #21](https://github.com/yukariyukaro/bilibili-cli/issues/21) 与 20 条执行 issues，回填依赖及 U01–U22 覆盖，并在 README/路线图/交接记录提供入口；本次仅文档，无新运行时行为或 npm 发布。
 - 2026-10-22 提交检查点：保存既有严格 TS 迁移、bridge 控制命令、cleanup 与安装 E2E，并将阶段 2.5/3–5、真实验收与发布缺口转入 GitHub issues。本提交不是 AI 自动回复完成或 npm 发布声明，1.1.0 仍保留 Unreleased。
 - npm 清单使用 `@yukariyukaro/bilibili-cli`，命令名仍为 `bilibili`、Skill 名仍为 `bilibili-cli`；无 scope 的同名 npm 包属于其他维护者。安装测试支持 scoped 布局并增加 tarball 的 npm exec 入口验证。未发布版本的 npx 示例已标明“发布后可用”，当前可用路径为可信本地 CLI 或维护者构建的 tarball。
 - AI 自动发送仍未实现：用户选择外部 cc-connect/agent、自动回复及私信/评论两通道，但运行时绑定、权限/限范围/撤销策略与现有逐次确认规则尚需协调。当前代码默认拒绝与既有写保护不变。

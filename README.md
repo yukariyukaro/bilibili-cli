@@ -256,6 +256,8 @@ bilibili bridge stop --json          # 请求同一状态目录的实例优雅�
 
 ## 接下来想做的事
 
+剩余路线图已登记为 **20 条执行 issue + 1 条总追踪**，包含依赖、验收标准及 U01–U22 覆盖表：[GitHub 总追踪 #21](https://github.com/yukariyukaro/bilibili-cli/issues/21)。当前代码检查点已推送；这不代表 AI 闭环完成或 npm 已发布。
+
 <details>
 <summary>安装、版本同步与 bridge 的后续计划（均未实现）</summary>
 
