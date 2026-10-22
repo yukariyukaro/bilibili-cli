@@ -27,6 +27,13 @@
 - 仓库结构：CLI 源码/测试/脚本移入 `packages/bilibili-cli/`，Skill 只保留
   `skills/bilibili-cli/{SKILL.md,references}`，维护者文档移入 `docs/bilibili-cli/`。
 
+### 修复
+
+- bridge 单实例 recovery guard 改为“临时文件写满后 link 发布”，避免并发启动时读到
+  尚未写入内容的空 guard 而误报 `LOCK_RECOVERY`；等待存活 guard 的上限从 150ms
+  放宽到 3s，减少慢 runner 上的 `LOCK_BUSY` 误报。损坏、跨主机与 stale guard
+  仍然 fail closed，不自动回收。
+
 ### 测试
 
 - 新增 test/release/：真实从 npm registry 下载发布包、从 GitHub 下载固定 commit 的 Skill 归档，校验

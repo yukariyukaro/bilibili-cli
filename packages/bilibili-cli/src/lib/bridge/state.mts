@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises'
+import { link, mkdir, open, readFile, rename, unlink } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { basename, dirname, resolve, sep } from 'node:path'
 
@@ -417,10 +417,12 @@ export interface AcquireLockOptions {
 /**
  * 同 statePath 单实例锁。
  *
- * 所有 acquire 都先拿一个短时 recovery guard（.lock.guard，wx 原子创建），再在
- * guard 内完成“读锁 -> stale 判断 -> 删除 -> 新建”。这样两个并发恢复者不可能
- * 各自读到旧 token 后交替删除对方新建的锁。正常新建锁仍是 wx；guard 只串行化
- * 恢复/创建临界区。
+ * 所有 acquire 都先拿一个短时 recovery guard（.lock.guard），再在 guard 内完成
+ * “读锁 -> stale 判断 -> 删除 -> 新建”。这样两个并发恢复者不可能各自读到旧
+ * token 后交替删除对方新建的锁。正常新建锁仍是 wx；guard 只串行化恢复/创建临界区。
+ * guard 必须原子发布：先在同一目录写临时文件，内容完整后再 link 到 guard 路径
+ * （目标已存在则 EEXIST 表示并发者已持有）。若先用 wx 建 guard 再写入，并发者
+ * 可能在写完前读到空文件，把正常初始化误判为“guard 损坏”而 LOCK_RECOVERY 失败。
  *
  * - 锁存在且 pid 存活（同主机）或锁属于当前 pid => ALREADY_RUNNING，不回收。
  * - pid 已退出（同主机）=> stale，持 guard 重读 token/pid 后回收并重试。
@@ -457,8 +459,42 @@ export async function acquireInstanceLock(
   return acquired
 }
 
-const GUARD_RETRIES = 5
+// guard 只是串行化“读锁/回收/新建”的短临界区；等待应覆盖另一个实例的初始化，
+// 而不是在一次调度延迟后误报 LOCK_BUSY。超过该上限仍拿不到才失败退出。
+const GUARD_RETRIES = 100
 const GUARD_WAIT_MS = 30
+
+/**
+ * 原子发布 recovery guard：先在 guard 同目录写完整临时文件，再 link 到 guard 路径。
+ * link 在目标存在时以 EEXIST 失败，因此并发者要么看到完整内容，要么看到 EEXIST；
+ * 不会看到“已创建但尚未写入”的空 guard。临时文件始终清理。
+ */
+async function publishRecoveryGuard(guardPath: string, info: InstanceLockInfo): Promise<boolean> {
+  const temp = dirname(guardPath) + sep + '.' + basename(guardPath) + '.' + process.pid + '.' + randomUUID() + '.tmp'
+  try {
+    let handle: Awaited<ReturnType<typeof open>> | null = null
+    try {
+      handle = await open(temp, 'wx', 0o600)
+      await handle.writeFile(JSON.stringify(info) + '\n', 'utf8')
+      await handle.sync()
+      await handle.close()
+      handle = null
+    } catch (error) {
+      if (handle) await handle.close().catch(() => undefined)
+      throw fail('LOCK_CREATE', '无法写入 recovery guard 临时文件 ' + temp + '：' + errorMessage(error), error)
+    }
+    try {
+      await link(temp, guardPath)
+      return true
+    } catch (error) {
+      // 目标已存在：另一个实例持有 guard，交回上层读取并等待/判定。
+      if (errorCode(error) === 'EEXIST') return false
+      throw fail('LOCK_CREATE', '无法创建 recovery guard ' + guardPath + '：' + errorMessage(error), error)
+    }
+  } finally {
+    await unlink(temp).catch(() => undefined)
+  }
+}
 
 async function acquireRecoveryGuard(
   guardPath: string,
@@ -466,23 +502,7 @@ async function acquireRecoveryGuard(
   logger: (message: string) => void,
 ): Promise<void> {
   for (let attempt = 0; attempt < GUARD_RETRIES; attempt += 1) {
-    let handle: Awaited<ReturnType<typeof open>> | null = null
-    let created = false
-    try {
-      handle = await open(guardPath, 'wx', 0o600)
-      created = true
-      await handle.writeFile(JSON.stringify(info) + '\n', 'utf8')
-      await handle.close()
-      handle = null
-      created = false
-      return
-    } catch (error) {
-      if (handle) await handle.close().catch(() => undefined)
-      if (created) await unlink(guardPath).catch(() => undefined)
-      if (errorCode(error) !== 'EEXIST') {
-        throw fail('LOCK_CREATE', '无法创建 recovery guard ' + guardPath + '：' + errorMessage(error), error)
-      }
-    }
+    if (await publishRecoveryGuard(guardPath, info)) return
 
     let existing: InstanceLockInfo | null
     try {
