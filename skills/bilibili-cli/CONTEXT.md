@@ -4,7 +4,7 @@
 
 ## 最新提交检查点与后续 issue 交接
 
-源码检查点 [aaafa3f](https://github.com/yukariyukaro/bilibili-cli/commit/aaafa3fb4ea087ae270f8ce44fad8f8ee0b76a96) 已推送 main；剩余问题已迁移为 [总追踪 #21](https://github.com/yukariyukaro/bilibili-cli/issues/21) 及其 20 条执行 issues，包含 U01–U22 覆盖、依赖和验收。原工作树仍保留未提交内容，后续开发先从最新远端/本隔离分支开始，不要把旧树直接全量覆盖回来。
+源码检查点 [aaafa3f](https://github.com/yukariyukaro/bilibili-cli/commit/aaafa3fb4ea087ae270f8ce44fad8f8ee0b76a96) 与文档索引 [d51b9d7](https://github.com/yukariyukaro/bilibili-cli/commit/d51b9d7f7ddcced3c80235ac1dcc39f4166ac8a2) 已推送 main。原 20+1 条 issue 已删除并合并为 5 条主题 issue：[#22 发布/升级](https://github.com/yukariyukaro/bilibili-cli/issues/22)、[#23 数据正确性](https://github.com/yukariyukaro/bilibili-cli/issues/23)、[#24 私信 AI 闭环](https://github.com/yukariyukaro/bilibili-cli/issues/24)、[#25 评论 AI 闭环](https://github.com/yukariyukaro/bilibili-cli/issues/25)、[#26 运行与运维](https://github.com/yukariyukaro/bilibili-cli/issues/26)；后续按主题方向推进，子项不再单独开票，旧编号不复用。原工作树仍保留未提交内容，后续开发先从最新远端/本隔离分支开始，不要把旧树直接全量覆盖回来。
 
 **提交快照复验**：重新 npm ci、typecheck 和完整 npm test 均 exit 0，14 顶层组通过（含新增 tarball npm exec），bridge 失败 0；证据 Pd62uK。scoped 包两安装路径均通过，历史 13 组记录不代表本次计数。真实 readonly 的 min_seqno 红灯未修、真实 AI 闭环未验，本次无真实账号读写。
 本轮用户要求保存当前实现、commit/push，剩余工作转为 GitHub issues；**不继续扩展 AI 功能、不发布 npm 包**。提交在基于最新远端 main 的独立工作树整理，原开发目录及其他项目未提交内容保留。已实现的是严格 TS 迁移、27 条命令、bridge run/status/stop、保守 cleanup 和安装回归，不是 AI 回复闭环。

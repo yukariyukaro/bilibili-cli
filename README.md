@@ -256,29 +256,19 @@ bilibili bridge stop --json          # 请求同一状态目录的实例优雅�
 
 ## 接下来想做的事
 
-剩余路线图已登记为 **20 条执行 issue + 1 条总追踪**，包含依赖、验收标准及 U01–U22 覆盖表：[GitHub 总追踪 #21](https://github.com/yukariyukaro/bilibili-cli/issues/21)。当前代码检查点已推送；这不代表 AI 闭环完成或 npm 已发布。
+剩余工作收敛为 **5 条主题 issue**，不再按单个子项拆票；每条都有现状证据、范围、完成定义和依赖。日常开发从 issue 选主题，阶段细节与证据仍留在路线图和测试台账：
 
-<details>
-<summary>安装、版本同步与 bridge 的后续计划（均未实现）</summary>
+| 主题 | 当前状态 | Issue |
+| --- | --- | --- |
+| 发布与升级 | npm 1.1.0 未发布；Skill 与 CLI 的版本/安装面未打通 | [#22](https://github.com/yukariyukaro/bilibili-cli/issues/22) |
+| 数据正确性 | 真实只读 18/1/3；min_seqno 红灯、ID 精度、超过 30 条分页未收口 | [#23](https://github.com/yukariyukaro/bilibili-cli/issues/23) |
+| 私信 AI 闭环 | 能把白名单私信转发到 cc-connect；默认拒绝回复，无 agent 绑定/自动策略 | [#24](https://github.com/yukariyukaro/bilibili-cli/issues/24) |
+| 评论 AI 闭环 | 能读评论；无通知轮询、精确楼中楼目标解析与自动回复 | [#25](https://github.com/yukariyukaro/bilibili-cli/issues/25) |
+| 运行与运维 | 生命周期/状态有离线基础；无控制台、真实 Docker/CI、性能基线 | [#26](https://github.com/yukariyukaro/bilibili-cli/issues/26) |
 
-**当前检查点**：严格 TS 迁移、bridge 控制命令与 cleanup 已实现；离线安装 E2E 通过，真实只读仍有 min_seqno 红灯，真实 bridge 入站与 AI 回复闭环尚未验收。剩余工作转入 GitHub issues；本检查点不是 npm 发布，不将源码推送当成功能完成。
+**当前可用度（不要读成“产品完成”）**：可信安装的 CLI 可做查询和受控写；真实只读仍有 1 个未解释失败。bridge 目前只是私信传输壳，默认不会自动回复；npm 未发布，外部用户不能按 npx 直接使用。检查点 `aaafa3f` / `d51b9d7` 已推送，但这不等于功能完成或发布。
 
-下面这些功能还需要继续开发。具体范围与验收条件见 [实施路线图](skills/bilibili-cli/bridge实施路线图.md)（阶段 2.5 与任务台账），进度以那里和 [CHANGELOG](skills/bilibili-cli/CHANGELOG.md) 为准。
-
-| 待做功能 | 现在的实际行为 | 目标体验 | 状态 |
-| --- | --- | --- | --- |
-| 升级 Skill 即同步 CLI（阶段 2.5） | Skill 安装面与 CLI 安装面互不感知：升级 Skill 后 PATH 上的 `bilibili` 可能仍是旧版；源码 Skill 里也没有可执行的 `dist/` | 一次 Skill 升级后直接敲 `bilibili` 就是同一版本的新能力，不用再手工 `npm install -g` / `npm ci` / `npm run compile` | 未实现 |
-| 版本一致性检测 | `doctor` 只报 Node、状态目录、凭证是否存在、API 包版本，不回答"CLI 与 Skill 是不是同一版" | `doctor --json` 与 `bilibili skills status --json` 报出 CLI/Skill 版本、路径、`consistent` 与下一步 | 未实现 |
-| 一键对齐命令 | 只能手工装全局包或改链接，回滚也得手工 | `bilibili skills link --path <Skill 目录> [--confirm]`：默认预览，确认后执行，失败不改现状 | 未实现 |
-| bridge 分层重构（阶段 3.1 至 3.4） | 单进程装配 + 私信文本轮询；没有 agent 适配器、会话绑定与逐次审批闭环 | 按 cc-connect 思路拆核心/适配器，可靠事件存储，绑定与受控回复 | 未开始 |
-| Web 控制台与 Skill setup 闭环（阶段 4） | 没有 `web/`，需要长期开一个终端 | 本机静态页启停/绑定/审批，Skill 引导 setup 与排障 | 未开始 |
-| Codex / Claude Code 薄插件（阶段 5） | 没有插件或 hook | 先核验宿主真实能力，再决定插件、hook 还是 Skill | 未开始（可选） |
-
-2026-10-22 核验的一份本地样本中，`.agents/skills` 里的 Skill 是 1.0.0，PATH 上的 `bilibili` 是 1.1.0（junction 到本仓库源码）。安装与版本检测的后续工作会处理这种差异。
-
-> 已实现的能力（`bridge run/status/stop`、`skills cleanup` 等）不在上表；它们仍有各自的"已验证/未验证"边界，见 [测试台账](skills/bilibili-cli/test/bridge/BASELINE.md)。
-
-</details>
+> 详细证据边界见 [测试台账](skills/bilibili-cli/test/bridge/BASELINE.md)，阶段计划见 [实施路线图](skills/bilibili-cli/bridge实施路线图.md)。2026-10-22 的 20+1 条旧 issue 已删除，合并为本节 5 条；旧编号不会复用。
 
 ## 源码布局
 
