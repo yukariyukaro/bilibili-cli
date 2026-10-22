@@ -57,7 +57,7 @@ bilibili bridge stop --json
 ## 故障排查
 
 1. 先用 `bilibili doctor --json` 确认 CLI、Node、状态目录与凭证存在性；它不读取凭证正文，也不证明登录可用。
-2. 检查三项前置：token 是否只在环境变量中、owner UID 是否为允许监听的对端用户（不是运行 bridge 的登录账号自身）、状态路径是否与 status/stop 一致。
+2. 检查三项前置：token 是否只在环境变量中、owner UID 是否为当前账号、状态路径是否与 status/stop 一致。
 3. 连接被拒时核对 `CC_CONNECT_BRIDGE_URL` 与本地 cc-connect 实例；不要把 token 回显到排障输出。
 4. 停止失败时先用 `status` 确认运行实例与 PID，再用同一状态路径的 `stop`；仍然失败则如实报告，不自行清理锁文件或状态文件。
 

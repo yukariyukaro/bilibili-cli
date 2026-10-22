@@ -4,26 +4,23 @@
 
 1.1.0 相对 1.0.0 为兼容新增，保留原有 23 条命令；只有 `bilibili` 分组命令属于 1.x 公开契约，旧的平铺命令和别名不属于。本目录是该 CLI 与 bridge 的唯一源码，Git 根在 `../../`。
 
-## 当前可用：可信本地 CLI 或维护者构建
+## 使用者：免安装 npx（推荐）
 
-**1.1.0 仍为 Unreleased，npmjs 目标版本尚未发布；源码推送不等于 npm 发布。** 当前可用可信的已安装 CLI，或在本目录执行 `npm ci`、`npm run typecheck`、`npm run build`，对构建目录 `npm pack` 后安装已核验的 tarball。源码 Skill 不含 dist，不能把只安装 Skill 当作已安装 CLI。
-
-## 发布后可用：免安装 npx
-
-以下命令仅在 `@yukariyukaro/bilibili-cli@1.1.0` 实际发布并核验后可用；预编译 npm 包无需 clone 或本地编译：
+官方 npm 包 `@yukariyukaro/bilibili-cli` 自带编译产物。默认按精确版本临时运行，不需要 clone 仓库、执行编译或全局安装：
 
 ```bash
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili --help
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili doctor --json
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili auth status --json
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili video search --keyword "AI Agent" --num 10 --json
+# 国内默认使用 npmmirror 时，API 依赖的 tarball 可能尚未同步，显式指定官方源
+npx --registry https://registry.npmjs.org --package @yukariyukaro/bilibili-cli@1 bilibili --help
+npx --package @yukariyukaro/bilibili-cli@1 bilibili doctor --json
+npx --package @yukariyukaro/bilibili-cli@1 bilibili auth status --json
+npx --package @yukariyukaro/bilibili-cli@1 bilibili video search --keyword "AI Agent" --num 10 --json
 ```
 
 `npx --package <包> bilibili ...` 会先解析该包，再执行包内的 `bilibili` 命令；下文示例省略这段前缀，实际调用时在 `bilibili` 前补上即可。
 
 npm 包名是 `@yukariyukaro/bilibili-cli`，Skill 名仍为 `bilibili-cli`，命令名仍为 `bilibili`。无 scope 的 `bilibili-cli` 是其他维护者的项目，不要安装它作为本工具。版本可用性以公共 registry 为准；解析失败时核对版本、registry 与网络，全局安装同样需要该版本已经发布。
 
-## 发布后可用：可选全局安装
+## 使用者：可选全局安装
 
 希望固定安装、反复调用时：
 

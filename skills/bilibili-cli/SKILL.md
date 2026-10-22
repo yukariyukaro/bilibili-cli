@@ -7,13 +7,18 @@ description: 使用官方 bilibili 1.x CLI（@yukariyukaro/bilibili-cli，npx �
 
 ## 运行方式
 
-需要 Node.js 22+。当前 1.1.0 仍为 Unreleased，目标 npm 版本尚未发布；优先使用已核验的本地 `bilibili`。若没有可用 CLI，维护者可按 [README](README.md) 构建并安装可信 tarball，不把仅有 Skill 文档当作 CLI 可用。以下 npx 方式仅在目标版本实际发布并核验后可用，预编译 npm 包无需本地编译：
+需要 Node.js 22+。按顺序确定入口，不要跳过第 1 步去重装：
+
+1. **先用已安装的 CLI**：`bilibili --version` 能执行就直接用，并用 `bilibili doctor --json` 核对版本与 API 包。全局或本地已有安装同样有效，不必改成 npx。
+2. **没有再临时运行**：用官方预编译包，不需要 clone、编译或 TypeScript：
 
 ```bash
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili auth status --json
+npx --package @yukariyukaro/bilibili-cli@1 bilibili auth status --json
 ```
 
-可选全局安装为 `npm install -g @yukariyukaro/bilibili-cli`，之后直接使用 `bilibili`。下文用 `bilibili <命令>` 表示入口；使用 npx 时在 `bilibili` 前补 `npx --package @yukariyukaro/bilibili-cli@1.1.0`。
+3. 两者都不可用时，如实说明当前无法运行，不要用源码目录里的脚本冒充已安装的 CLI，也不要伪造安装或升级成功。
+
+可选全局安装：`npm install -g @yukariyukaro/bilibili-cli`，之后直接使用 `bilibili`。下文用 `bilibili <命令>` 表示入口；走 npx 时在 `bilibili` 前补 `npx --package @yukariyukaro/bilibili-cli@1`。
 
 只使用官方包名 `@yukariyukaro/bilibili-cli`，不安装来源不明的同名包。以 registry 与 `bilibili --version` 的实际结果为准；npx 无法解析时如实说明不可用，改用可信的本地已安装 CLI，不要伪造安装或升级成功。维护者源码构建见 [README](README.md)。
 

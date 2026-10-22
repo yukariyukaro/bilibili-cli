@@ -1,0 +1,13 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Bilibili",
+      "description": "B 站研究、字幕/评论读取、私信与 bridge 监听的 Agent 技能。",
+      "skills": [
+        "bilibili-cli"
+      ]
+    }
+  ]
+}

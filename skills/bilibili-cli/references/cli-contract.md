@@ -4,10 +4,10 @@
 
 ## 安装与运行
 
-Node.js 22+。当前 1.1.0 为 Unreleased，npmjs 目标版本尚未发布；目前使用可信已安装 CLI 或按 [README](../README.md) 构建/打包/安装本地 tarball。预编译包 `@yukariyukaro/bilibili-cli` 发布并核验后，才可从 registry 临时运行：
+Node.js 22+。官方 npm 包 `@yukariyukaro/bilibili-cli` 提供预编译的 `dist/`，默认从 registry 临时运行：
 
 ```bash
-npx --package @yukariyukaro/bilibili-cli@1.1.0 bilibili <命令> [参数]
+npx --package @yukariyukaro/bilibili-cli@1 bilibili <命令> [参数]
 ```
 
 也可选 `npm install -g @yukariyukaro/bilibili-cli` 后直接使用 `bilibili`。下文示例省略入口前缀。包的 `files` 为 `dist`、`cli`、`SKILL.md`、`references`、`README.md`、`LICENSE`、`CHANGELOG.md`，不含源码、测试或 TypeScript 工具链。

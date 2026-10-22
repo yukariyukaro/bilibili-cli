@@ -1,0 +1,42 @@
+name: refresh-skills-sh
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-skills-sh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate skill metadata
+        run: |
+          test -f skills.sh.json
+          test -f skills/bilibili-cli/SKILL.md
+          node -e "const s=require('./skills.sh.json'); if(!Array.isArray(s.groupings)) { console.error('skills.sh.json missing groupings'); process.exit(1) } console.log('skills.sh.json ok')"
+          node -e "const p=require('./skills/bilibili-cli/package.json'); if(!p.version) process.exit(1); console.log('skill version', p.version)"
+
+      - name: Force skills.sh refresh
+        # skills.sh has no public revalidate endpoint: repo pages are built from
+        # GitHub content plus skills CLI telemetry. Emit a fresh install event
+        # and warm the repo page on every main commit so the listing refreshes.
+        run: |
+          npx --yes skills@latest add yukariyukaro/bilibili-cli -g -y
+          curl -fsSL -o /dev/null "https://www.skills.sh/yukariyukaro/bilibili-cli" || true
+
+      - name: Verify installable from GitHub
+        run: |
+          npx --yes skills@latest add yukariyukaro/bilibili-cli -l
