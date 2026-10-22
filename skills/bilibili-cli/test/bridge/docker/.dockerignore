@@ -1,0 +1,39 @@
+# Defense in depth. The host runner already builds a curated context:
+# CLI src/tsconfig/scripts/cli shim/package files/docs + test/bridge.
+**/.git
+**/.git/**
+**/node_modules
+**/node_modules/**
+**/.state
+**/.state/**
+**/.artifacts
+**/.artifacts/**
+**/artifacts
+**/artifacts/**
+**/.cc-connect
+**/.cc-connect/**
+**/.compile-*
+**/bili_credential.json
+**/credential.json
+**/credentials.json
+**/cookies*
+**/cookie*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/.env
+**/.env.*
+**/.npmrc
+**/.netrc
+**/.git-credentials
+**/audit.jsonl
+**/qrcode_login.png
+**/*.tgz
+**/*.log
+
+# Never ship generated build outputs or stale test state even if a future
+# allowlist accidentally includes them.
+skills/bilibili-cli/dist
+skills/bilibili-cli/test/bridge/.artifacts
+skills/bilibili-cli/release

@@ -1,0 +1,2 @@
+# Historical cleanup fixtures are matched byte-for-byte; never rewrite their line endings.
+skills/bilibili-cli/test/fixtures/legacy-skill-1.0.0/** text eol=lf

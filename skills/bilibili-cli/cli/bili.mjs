@@ -1,4 +1,5 @@
 #!/usr/bin/env node
-import { main } from '../lib/command.mjs'
+// Compatibility launcher only; all implementation is compiled from src/.
+import { main } from '../dist/lib/command.mjs'
 
 await main()

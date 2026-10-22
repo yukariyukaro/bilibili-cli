@@ -1,0 +1,416 @@
+[
+  {
+    "name": "auth login start",
+    "description": "生成扫码登录二维码",
+    "fields": {}
+  },
+  {
+    "name": "auth login poll",
+    "description": "轮询一次扫码状态",
+    "fields": {
+      "key": {
+        "type": "string",
+        "description": "二维码 key",
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "auth status",
+    "description": "检查账户登录状态",
+    "tool": "auth_status",
+    "fields": {}
+  },
+  {
+    "name": "video search",
+    "description": "搜索视频",
+    "tool": "search",
+    "fields": {
+      "keyword": {
+        "type": "string",
+        "description": "搜索关键词",
+        "required": true
+      },
+      "num": {
+        "type": "integer",
+        "description": "结果数量",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 10
+      },
+      "order": {
+        "type": "string",
+        "description": "排序",
+        "enum": [
+          "totalrank",
+          "click",
+          "pubdate",
+          "dm"
+        ],
+        "default": "totalrank"
+      }
+    }
+  },
+  {
+    "name": "video info",
+    "description": "查看视频信息",
+    "tool": "video_info",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "video subtitle",
+    "description": "读取视频完整字幕",
+    "tool": "subtitle",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "video hot",
+    "description": "读取热门视频",
+    "tool": "hot_videos",
+    "fields": {
+      "page": {
+        "type": "integer",
+        "description": "页码",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "结果数量",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 20
+      }
+    }
+  },
+  {
+    "name": "comment list",
+    "description": "读取视频评论",
+    "tool": "comments",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      },
+      "num": {
+        "type": "integer",
+        "description": "结果数量",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 30
+      },
+      "order": {
+        "type": "string",
+        "description": "排序",
+        "enum": [
+          "like",
+          "time"
+        ],
+        "default": "like"
+      }
+    }
+  },
+  {
+    "name": "comment thread",
+    "description": "读取指定根评论的楼中楼",
+    "tool": "comment_thread",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      },
+      "rpid": {
+        "type": "integer",
+        "description": "评论正整数 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "结果数量",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 10
+      }
+    }
+  },
+  {
+    "name": "comment create",
+    "description": "发送经本次确认的评论或回复",
+    "tool": "reply",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      },
+      "text": {
+        "type": "string",
+        "description": "最终正文",
+        "required": true,
+        "maxLength": 150
+      },
+      "rpid": {
+        "type": "integer",
+        "description": "评论正整数 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "root": {
+        "type": "integer",
+        "description": "回复楼中楼时所属根评论 ID，必须同时指定 rpid",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标和正文已经用户确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览，不调用接口或写审计",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "comment delete",
+    "description": "删除经本次确认的评论，不可自动重试",
+    "tool": "delete",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "pattern": "^BV[0-9A-Za-z]{10}$",
+        "required": true
+      },
+      "rpid": {
+        "type": "integer",
+        "description": "评论正整数 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标和正文已经用户确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览，不调用接口或写审计",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "user info",
+    "description": "查看用户公开资料",
+    "tool": "user_info",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "user relation",
+    "description": "查看与用户的关系",
+    "tool": "user_relation",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "inbox",
+    "description": "读取回复、点赞或 @ 通知单页",
+    "tool": "inbox",
+    "fields": {
+      "kind": {
+        "type": "string",
+        "description": "通知类型",
+        "enum": [
+          "reply",
+          "like",
+          "at"
+        ],
+        "required": true
+      },
+      "cursorId": {
+        "type": "integer",
+        "description": "分页 ID 游标",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "default": 0
+      },
+      "cursorTime": {
+        "type": "integer",
+        "description": "分页时间游标",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "default": 0
+      }
+    }
+  },
+  {
+    "name": "dm status",
+    "description": "读取与指定用户的互关关系及未读计数",
+    "tool": "dm_status",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "dm read",
+    "description": "单次读取指定会话消息，最多 30 条",
+    "tool": "dm_latest",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "dm send",
+    "description": "向已确认互关的用户发送经本次确认的纯文本私信",
+    "tool": "dm_send",
+    "write": true,
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "text": {
+        "type": "string",
+        "description": "最终正文",
+        "required": true,
+        "maxLength": 300
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标和正文已经用户确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览，不调用接口或写审计",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "config get",
+    "description": "读取非敏感配置",
+    "fields": {}
+  },
+  {
+    "name": "config set",
+    "description": "设置单个白名单配置项",
+    "fields": {
+      "key": {
+        "type": "string",
+        "description": "配置键",
+        "required": true,
+        "enum": [
+          "writesEnabled",
+          "mentionName",
+          "dmRecipientUid"
+        ]
+      },
+      "value": {
+        "type": "string",
+        "description": "配置值（writesEnabled 仅 true/false；dmRecipientUid 为正整数，非空时限定私信收件人）",
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "doctor",
+    "description": "检查运行环境与内置依赖（@yukariyukaro/bilibili-api-ts）",
+    "fields": {
+      "setup": {
+        "type": "boolean",
+        "description": "输出运行时库版本与依赖状态",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "schema",
+    "description": "输出版本化命令契约",
+    "fields": {}
+  },
+  {
+    "name": "skills list",
+    "description": "列出随 CLI 交付的技能",
+    "fields": {}
+  },
+  {
+    "name": "skills read",
+    "description": "读取技能指导",
+    "fields": {
+      "name": {
+        "type": "string",
+        "description": "技能名",
+        "default": "bilibili-cli",
+        "enum": [
+          "bilibili-cli"
+        ]
+      }
+    }
+  }
+]

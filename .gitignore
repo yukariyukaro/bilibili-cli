@@ -1,6 +1,8 @@
 node_modules/
 .venv/
 release/
+skills/bilibili-cli/dist/
+skills/bilibili-cli/.compile-*/
 *.tgz
 *.log
 *.bak*

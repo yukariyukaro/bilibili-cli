@@ -1,30 +1,52 @@
 {
-  "name": "bilibili-cli",
-  "version": "1.0.0",
+  "name": "@yukariyukaro/bilibili-cli",
+  "version": "1.1.0",
   "description": "自包含的 B 站研究、扫码登录与显式确认评论 CLI 技能",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukariyukaro/bilibili-cli.git",
+    "directory": "skills/bilibili-cli"
+  },
+  "homepage": "https://github.com/yukariyukaro/bilibili-cli",
+  "bugs": {
+    "url": "https://github.com/yukariyukaro/bilibili-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "bin": {
-    "bilibili": "./cli/bili.mjs"
+    "bilibili": "./dist/cli/bili.mjs"
   },
- "files": [
+  "files": [
+    "dist",
     "cli",
-    "lib",
     "SKILL.md",
     "references",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "test": "node scripts/verify.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "compile": "node scripts/compile.mjs",
+    "typecheck": "tsc --noEmit",
+    "prepack": "node scripts/compile.mjs"
   },
   "dependencies": {
     "@yukariyukaro/bilibili-api-ts": "^17.4.1",
     "commander": "^14.0.3",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/qrcode": "^1.5.6",
+    "typescript": "~5.9.3"
   }
 }

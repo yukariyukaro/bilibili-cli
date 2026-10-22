@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve, isAbsolute } from 'node:path'
 
 const sections = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
@@ -22,6 +22,8 @@ export function assertClosure(dir, { lock = true } = {}) {
     assert.equal(data.name, pkg.name)
     assert.equal(data.version, pkg.version)
     assert.deepEqual(data.packages[''].dependencies, pkg.dependencies, '锁文件必须与清单一致')
+    assert.deepEqual(data.packages[''].devDependencies, pkg.devDependencies, '锁文件开发依赖必须与清单一致')
+    assert.equal(data.packages[''].bin?.bilibili?.replace(/^\.\//, ''), pkg.bin?.bilibili?.replace(/^\.\//, ''), '锁文件bin必须与清单一致')
     for (const [path, entry] of Object.entries(data.packages)) {
       assert.ok(path === '' || path.startsWith('node_modules/'), `锁文件不能指向包外：${path}`)
       assert.ok(!forbidden.test(path.replace(/^node_modules\//, '')) && !entry.link, `禁止宿主或符号链接：${path}`)
@@ -40,10 +42,13 @@ export function assertClosure(dir, { lock = true } = {}) {
           if (specifier.startsWith('.')) {
             const target = relative(dir, resolve(dirname(path), specifier))
             assert.ok(target && !target.startsWith('..') && !isAbsolute(target), `运行时导入越界：${specifier}`)
+            assert.ok(existsSync(resolve(dirname(path), specifier)), `运行时导入缺失：${specifier}`)
           } else assert.ok(allowed.includes(specifier), `未声明的运行时导入：${specifier}`)
         }
       }
     }
   }
-  for (const folder of ['cli', 'lib']) walk(join(dir, folder))
+  assert.equal(pkg.bin?.bilibili, './dist/cli/bili.mjs', '只发布编译后的唯一命令入口')
+  assert.deepEqual(pkg.files, ['dist', 'cli', 'SKILL.md', 'references', 'README.md', 'LICENSE', 'CHANGELOG.md'], '发布包不得包含源码或测试/工具链')
+  for (const folder of ['dist', 'cli']) walk(join(dir, folder))
 }

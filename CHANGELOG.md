@@ -1,5 +1,7 @@
 # 更新日志
 
+当前产品日志见 [skills/bilibili-cli/CHANGELOG.md](skills/bilibili-cli/CHANGELOG.md)。本文件保留既有公开入口与 1.0.0 历史；1.1.0 仍为 Unreleased，源码推送不等于 npm 发布。
+
 ## 1.0.0 — 2026-10-20
 
 **破坏性重构**
