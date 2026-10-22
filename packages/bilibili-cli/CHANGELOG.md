@@ -62,7 +62,8 @@
 - 本轮收尾验证（2026-10-22）：`npm run typecheck` exit 0；完整离线 `npm test` exit 0（15 个顶层组通过，bridge 失败 0 组，真实只读 `disabled`）。
 - 真实只读（账号 A，2.0.0 本地构建）：`BILIBILI_E2E=1 npm test` exit 0（16 组，真实只读 passed；热门、搜索、视频、字幕、评论、用户、通知、私信状态与 `dm send --dry-run` 均通过）。
 - `npm test` 内嵌的 bridge 离线 E2E（`node test/bridge/e2e/run.mjs readonly`，exit 0）：22 tests / 15 pass / 4 skip / 0 fail / 3 todo，`status=partial`；同轮 lifecycle 18 项中 1 pass / 17 skip。跳过项为登录态或真实双账号人工确认未提供，不计为通过。
-- CI 的 live job 因未配置 `BILIBILI_E2E_CREDENTIAL` 仍 skip，不能当作真实只读通过；本机已用账号 A 跑通真实只读。真实私信读取因未设置 `BILIBILI_E2E_TALKER` 跳过；bridge 真实只读仍未跑，需要互关账号 B 的 `BILIBILI_E2E_OWNER_UID`（可选 `BILIBILI_E2E_OWNER_HOME`）。
+- CI 的 live job 因未配置 `BILIBILI_E2E_CREDENTIAL` 仍 skip，不能当作真实只读通过；本机已用账号 A 跑通真实只读。
+- bridge 真实只读（账号 A + 互关账号 B `39374538`）：`node test/bridge/e2e/run.mjs readonly` exit 0，22 tests / 18 pass / 0 fail / 1 skip / 3 todo；用 B 的会话读取 4 条私信元数据。账号 B 预检因未提供 `BILIBILI_E2E_OWNER_HOME` 跳过；未执行真实写。
 
 ## 1.1.2 — 2026-10-22
 

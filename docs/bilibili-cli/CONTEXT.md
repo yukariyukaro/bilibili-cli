@@ -70,6 +70,13 @@ node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "旧目录绝对路�
 
 旧全局 Skill 已经用户授权通过官方 remove 清理，保留代码/文档备份；新版仅在仓库外新项目 scope 验证，**未替换全局 Skill，也未发布远端**。清理后 npm test exit 0（13 顶层组、bridge 失败 0），新证据根为临时 proTde 目录。
 
+### 5.2 2.0.0 真实只读复验（2026-10-23）
+
+- CLI：`BILIBILI_E2E=1 npm test` exit 0（16 组，真实只读 passed；账号 A 登录态有效）。
+- bridge：`node test/bridge/e2e/run.mjs readonly` exit 0（22 tests / 18 pass / 0 fail / 1 skip / 3 todo）。用账号 B UID `39374538`（娄宿三Alpha，双向互关）读取 4 条私信元数据；账号 B 预检因未提供 `BILIBILI_E2E_OWNER_HOME` 跳过；未执行真实写。
+- CI live job 仍因缺 `BILIBILI_E2E_CREDENTIAL` skip，不能当作真实只读通过。
+- 全局 CLI 已修复为 2.0.0；Codex 与 Claude Code 的 Skill junction 均指向 `.agents/skills/bilibili-cli`（2.0.0）。
+
 用户另行授权使用当前 CLI 保存的账号 A，账号 B 扫码登录；CLI 只读核验两账号不同且双向互关。真实 readonly 套件为 **18 pass / 1 fail / 3 skip，exit 1**：min_seqno 不等于消息最小序号；两条 msg_key 超安全整数。保留红灯、没有修改断言。补充诊断中 writesEnabled=false 且 audit 未变。首轮真实 bridge 已 ready，但 5 分钟内未观察到指定人工消息后自动停止。随后按明确授权改用 B→A CLI 私信，但第一次脚本在 `dm send` 后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同消息；两次均有审计记录，B 写权限已恢复 false，未删除消息。bridge 探针任务请求的 Windows 工作目录当时不存在，DSH 包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码未运行，不是产品 bridge 或系统 PowerShell 缺失证据。真实入站转发、回复拒绝及重启去重尚未验证。详情见 [最新测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md) 首节。
 
 ## 6. 常用命令（本目录）
