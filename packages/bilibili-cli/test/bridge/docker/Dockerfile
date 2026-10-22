@@ -21,16 +21,16 @@ RUN apt-get update \
 FROM base AS cli-builder
 
 WORKDIR /build/cli
-COPY skills/bilibili-cli/package.json skills/bilibili-cli/package-lock.json ./
+COPY packages/bilibili-cli/package.json skills/bilibili-cli/package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
-COPY skills/bilibili-cli/tsconfig.json ./
-COPY skills/bilibili-cli/src ./src
-COPY skills/bilibili-cli/cli ./cli
-COPY skills/bilibili-cli/scripts ./scripts
-COPY skills/bilibili-cli/CHANGELOG.md ./
-COPY skills/bilibili-cli/SKILL.md skills/bilibili-cli/README.md skills/bilibili-cli/LICENSE ./
-COPY skills/bilibili-cli/references ./references
+COPY packages/bilibili-cli/tsconfig.json ./
+COPY packages/bilibili-cli/src ./src
+COPY packages/bilibili-cli/cli ./cli
+COPY packages/bilibili-cli/scripts ./scripts
+COPY packages/bilibili-cli/CHANGELOG.md ./
+COPY packages/bilibili-cli/SKILL.md skills/bilibili-cli/README.md skills/bilibili-cli/LICENSE ./
+COPY packages/bilibili-cli/references ./references
 COPY context-manifest.json /build/context-manifest.json
 
 RUN node scripts/compile.mjs \
@@ -49,7 +49,7 @@ ENV PATH="/opt/bilibili/bin:${PATH}" \
     HOME=/tmp \
     BILIBILI_E2E_MODE=docker \
     BILIBILI_E2E_CONTAINER=1 \
-    BILIBILI_E2E_CLI_ROOT=/workspace/skills/bilibili-cli \
+    BILIBILI_E2E_CLI_ROOT=/workspace/packages/bilibili-cli \
     BILIBILI_E2E_INSTALLED_PREFIX=/opt/bilibili \
     BILIBILI_E2E_MANIFEST=/workspace/context-manifest.json
 
@@ -58,11 +58,11 @@ WORKDIR /workspace
 RUN ps -eo pid=,ppid= >/dev/null
 
 COPY --from=cli-builder /opt/bilibili /opt/bilibili
-COPY skills/bilibili-cli/test ./skills/bilibili-cli/test
+COPY packages/bilibili-cli/test ./packages/bilibili-cli/test
 COPY context-manifest.json /workspace/context-manifest.json
 
 USER node
 
 # The runner supplies --network none, --read-only, a tmpfs at /tmp and no mounts.
 # Local WebSocket control-plane traffic uses 127.0.0.1 inside this namespace.
-CMD ["node", "./skills/bilibili-cli/test/bridge/docker/container/entry.mjs"]
+CMD ["node", "./packages/bilibili-cli/test/bridge/docker/container/entry.mjs"]

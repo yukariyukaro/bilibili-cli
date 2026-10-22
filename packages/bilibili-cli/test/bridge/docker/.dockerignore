@@ -34,6 +34,6 @@
 
 # Never ship generated build outputs or stale test state even if a future
 # allowlist accidentally includes them.
-skills/bilibili-cli/dist
-skills/bilibili-cli/test/bridge/.artifacts
-skills/bilibili-cli/release
+packages/bilibili-cli/dist
+packages/bilibili-cli/test/bridge/.artifacts
+packages/bilibili-cli/release

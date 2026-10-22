@@ -4,13 +4,15 @@
 
 ## 安装与运行
 
-Node.js 22+。官方 npm 包 `@yukariyukaro/bilibili-cli` 提供预编译的 `dist/`，默认从 registry 临时运行：
+Node.js 22+ 和 npm。Skill 与 CLI 分开安装。运行前先检查 `bilibili --version`；命令可用时直接使用，并运行 `bilibili doctor --json` 核对版本与依赖，不要重复安装。
 
 ```bash
-npx --package @yukariyukaro/bilibili-cli@1 bilibili <命令> [参数]
+npm install -g @yukariyukaro/bilibili-cli@^1
+bilibili --version
+bilibili doctor --json
 ```
 
-也可选 `npm install -g @yukariyukaro/bilibili-cli` 后直接使用 `bilibili`。下文示例省略入口前缀。包的 `files` 为 `dist`、`cli`、`SKILL.md`、`references`、`README.md`、`LICENSE`、`CHANGELOG.md`，不含源码、测试或 TypeScript 工具链。
+仅在用户同意后执行全局安装；不得静默安装或升级。若用户不同意或环境无法安装，说明 CLI 依赖未满足并停止调用，不要自动切换到 npx，也不要使用源码脚本冒充已安装 CLI。只使用官方包名 `@yukariyukaro/bilibili-cli`。Skill 更新与 CLI 更新相互独立；更新 CLI 前先取得用户同意，更新后重新核验版本与依赖。下文示例均使用 `bilibili <命令> [参数]`。包的 `files` 为 `dist`、`cli`、`SKILL.md`、`references`、`README.md`、`LICENSE`、`CHANGELOG.md`，不含源码、测试或 TypeScript 工具链。
 
 1.1.0 相对 1.0.0 兼容新增 `bridge`、`skills cleanup` 等命令，保留原有 23 条命令。只使用 `bilibili` 分组命令；不注册 bili、dsh-bili-scroll 别名，不支持旧 setup、whoami、search、reply、delete、agent 和 action/params 别名。仓库只包含这一个 CLI 产品源码，不包含插件宿主、MCP 服务或第二份入口。
 

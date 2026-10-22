@@ -1,16 +1,5 @@
 # bridge × CLI：E2E 台账
 
-## 本次提交快照复验（2026-10-22）
-
-在基于最新 origin/main 的独立工作树完成 scoped 包快照复验：`npm ci --ignore-scripts --no-audit --no-fund`、`npm run typecheck`、`npm test` 均 exit 0。**14 个顶层组通过、bridge 失败 0**，比历史 13 组新增 tarball 的 npm exec 用例。证据根：`C:/Users/J/AppData/Local/Temp/bilibili-cli-e2e-Pd62uK`。
-
-- 包名为 `@yukariyukaro/bilibili-cli@1.1.0`；Skill 名及 `bilibili` 命令名不变。build/source 两条 npm pack/install/PATH 路径与 scoped 安装布局均通过。
-- tarball 在仓库外隔离缓存通过 npm exec 直接执行，未依赖源码或安装期编译；此结果不证明 npm registry 已发布。
-- build bridge 9 通过/0 失败，source 8 通过/0 失败/1 组不重复；build 生命周期 18/18，协议两路径各 10/10，历史缺陷 2/2，cleanup 双路径各 15/15，安装命令套件每路径 15 通过/0 失败/7 跳过。
-- 本次未启用真实账号测试、未发 B 站请求或消息。历史真实只读 **18 pass / 1 fail / 3 skip** 仍未修复；真实 bridge 入站、cc-connect/AI 处理、评论自动回复未验收。
-- 本次 Docker `--check` exit 0：75 个 context 文件、34 个 mjs、11 项静态检查；未调用 daemon、未构建或运行容器。
-- 以下 wm81Zo/proTde/FHttRR 等记录保留为当时证据，组数不回写、不累计；提交/推送是保存代码检查点，不是功能完成、tag 或 npm 发布。
-
 ## 清理后的复验与真实只读红灯（2026-10-22，Asia/Shanghai）
 
 本节为迁移验收后的新执行记录；下文 wm81Zo 等结果保留为历史证据，不代表本轮真实只读已通过。
@@ -22,7 +11,7 @@
 - 真实只读直接运行 `test/bridge/e2e/run.mjs readonly`，显式开启 READONLY 并指定安装 prefix、A/B home 和 UID；结果 **exit 1：18 通过、1 失败、3 MANUAL 跳过**。失败为现有 `01-dm-contract.test.mjs` 对顶层 min_seqno 等于消息集合最小值的断言；未删除、放宽或 skip 此断言。
 - 脱敏元数据：2 条 TEXT，倒序，顶层 min_seqno=2630428175433737、max_seqno=2630436497018881；返回消息 seqno=2630436497018881 / 2630428175564807，has_more=0。两个 msg_key 均超过 JS 安全整数。字段含义与上游精度影响尚需核实；不能仅凭本次 min 不等便宣称 bridge 丢消息。
 - 额外只读诊断确认 writesEnabled 前后均 false、audit stat 不变；未输出或保存私信正文。只读报告与元数据诊断位于仓库外测试目录的 `real-readonly/`。原测试在边界断言失败后才计划写 dm-contract.json，因此本轮该文件未生成，不是已生成后丢失；诊断元数据另存 dm-sequence-diagnostic.json。
-- 只读源码复核：CLI dmRead 透传 API 结果；bridge 取 messages 并用消息自身序号排序/建游标，不读顶层 min_seqno/max_seqno/has_more。2026-10-22 另查到 [bilibili-API-collect 私信文档](https://github.com/melon-444/bilibili-API-collect-fork/blob/master/docs/message/private_msg.md)把 `min_seqno`/`max_seqno` 描述为“所有消息最早/最晚”，`begin_seqno`/`end_seqno` 是分页边界；这支持“测试假设错误”，但仍需真实多页证据确认包含/方向/has_more 后再修正断言。本次样本不能证明 bridge 丢消息，也不能证明超过 30 条的分页完整性。
+- 只读源码复核：CLI dmRead 透传 API 结果；bridge 取 messages 并用消息自身序号排序/建游标，不读顶层 min_seqno/max_seqno/has_more。当前 min_seqno 等于页内最小值的测试假设缺乏契约证据，应保留失败并进一步验证服务端边界语义；本次样本不能证明 bridge 丢消息，也不能证明超过 30 条的分页完整性。
 - 精度链路风险：API 库先用普通 JSON.parse，bridge 的 lossless reviver 只能保全 CLI 输出文本，不能恢复在 API 层已舍入的真值。真实 CLI 路径中超安全整数可能已转成字符串，primaryIdString 会采用该串，而 hasUnsafeIntegerId 仅检测不安全 number，因此未必触发复合键回退/警告。由此存在舍入后 ID 碰撞导致错误去重的风险；尚未复现真实碰撞，不能把理论风险写成已发生的丢信。需在原始解析层保真并新增真实安装链回归，不改当前断言求绿。
 - 首轮真实 bridge 探针完成注册与基线 ready，随后等待 5 分钟，未观察到指定人工测试消息（`manual_message_not_observed`，exit 1）。随后按用户明确授权改用 B→A CLI 私信验证；第一次脚本在 `dm send` 已执行后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同测试消息。两次操作均有审计记录，B 写权限已恢复为 false；未删除消息，未继续重试。bridge 探针另因请求的 Windows 工作目录当时不存在，DSH 作业包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码并未运行，因此这不是产品 bridge 或系统 PowerShell 缺失证据。真实 bridge 转发、回复拒绝与重启去重仍未验证。
 - 当前产品入口默认拒绝回复。本地 WS 即使接到真实私信，也仅证明 CLI/bridge 入站与协议封装，不证明真实 cc-connect、AI 处理或 B 站回复送达。

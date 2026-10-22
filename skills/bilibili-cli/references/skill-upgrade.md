@@ -25,7 +25,7 @@ bilibili --version
 bilibili doctor --json
 ```
 
-从 Git 安装的 Skill 不带 npm 包生成的 `dist/`，因此不要指望在 Skill 目录直接运行包内 CLI，也**不需要也不应当**为此执行 `npm ci` 或编译：CLI 从官方 npm 包获取（npx 或全局安装）。只有维护者需要源码构建，见 [README](../README.md)。
+从 Git 安装的 Skill 不带 npm 包生成的 `dist/`，因此不要指望在 Skill 目录直接运行包内 CLI，也**不需要也不应当**为此执行 `npm ci` 或编译：CLI 从官方 npm 包全局安装。首次缺少 `bilibili` 命令时，按 [CLI 契约](cli-contract.md) 的安装流程取得用户同意后安装并核验。只有维护者需要源码构建，见 [README](../README.md)。
 
 ## 重新安装与 scope 隔离
 
@@ -62,7 +62,7 @@ bilibili skills cleanup --path "/绝对路径/旧副本/bilibili-cli" --json
 bilibili skills cleanup --path "/绝对路径/旧副本/bilibili-cli" --confirm --json
 ```
 
-使用 npx 入口时同样在前面补 `npx --package @yukariyukaro/bilibili-cli@1`。Windows 使用完整盘符路径；不能使用相对路径、UNC、设备路径或含 `..` 的路径。
+使用 PATH 上已安装的 `bilibili` 命令。Windows 使用完整盘符路径；不能使用相对路径、UNC、设备路径或含 `..` 的路径。
 
 - 默认只返回 `{action:"preview",path,version}`，不创建状态、不备份、不移动内容。
 - 确认后返回 `{action:"quarantined",path,version,backupPath}`；仅把目录 rename 到同级 `.bilibili-cli-backup-<UUID>/skill`，不永久删除。

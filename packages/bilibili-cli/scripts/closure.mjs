@@ -6,7 +6,7 @@ const sections = ['dependencies', 'devDependencies', 'optionalDependencies', 'pe
 const allowed = ['@yukariyukaro/bilibili-api-ts', 'commander', 'qrcode']
 const forbidden = /(?:dsh-bili-scroll|@deepseek-ai\/|^(?:file|link|workspace):|^\.{1,2}[\\/]|^[A-Za-z]:[\\/]|^\/)/
 
-export function assertClosure(dir, { lock = true } = {}) {
+export function assertClosure(dir, { lock = true, skillRoot = dir } = {}) {
   const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
   assert.deepEqual(Object.keys(pkg.dependencies || {}).sort(), allowed, '独立 CLI 仅允许 API 包、commander 与 qrcode 直接依赖')
   const inspect = (entry) => {
@@ -50,5 +50,9 @@ export function assertClosure(dir, { lock = true } = {}) {
   }
   assert.equal(pkg.bin?.bilibili, './dist/cli/bili.mjs', '只发布编译后的唯一命令入口')
   assert.deepEqual(pkg.files, ['dist', 'cli', 'SKILL.md', 'references', 'README.md', 'LICENSE', 'CHANGELOG.md'], '发布包不得包含源码或测试/工具链')
+  assert.ok(existsSync(join(skillRoot, 'SKILL.md')), '技能单一源缺少 SKILL.md')
+  assert.ok(existsSync(join(skillRoot, 'references', 'cli-contract.md')), '技能单一源缺少 CLI 契约')
+  assert.ok(existsSync(join(skillRoot, 'references', 'skill-upgrade.md')), '技能单一源缺少升级说明')
+  assert.ok(existsSync(join(skillRoot, 'references', 'bridge.md')), '技能单一源缺少 bridge 说明')
   for (const folder of ['dist', 'cli']) walk(join(dir, folder))
 }

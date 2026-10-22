@@ -1,0 +1,213 @@
+name: Publish bilibili-cli
+
+# 只在明确发版时运行：推送 bilibili-cli-v*.*.* 标签，或在 Actions 页面手动触发。
+# 手动触发默认 dry_run=true，只构建与验收，不真正发布。
+#
+# 需要在仓库 Secrets 中配置 NPM_TOKEN（带 bypass 2FA 的 granular token，
+# All packages + Read and write）。工作流不会打印该值，日志中也不出现。
+# 迁移到 npm trusted publishing 后，可删除 NODE_AUTH_TOKEN 并直接依赖 OIDC。
+
+on:
+  push:
+    tags:
+      - "bilibili-cli-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "已存在的标签，例如 bilibili-cli-v1.1.1"
+        required: true
+      dry_run:
+        description: "只构建与验收，不发布"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-bilibili-cli
+  cancel-in-progress: false
+
+env:
+  PACKAGE_DIR: packages/bilibili-cli
+  NODE_VERSION: "22"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve target ref
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            REF="${GITHUB_REF_NAME}"
+          else
+            REF="${{ inputs.tag }}"
+          fi
+          if [ -z "${REF}" ]; then
+            echo "缺少目标标签" >&2
+            exit 1
+          fi
+          git rev-parse --verify "refs/tags/${REF}" >/dev/null
+          git checkout --detach "refs/tags/${REF}"
+          echo "ref=${REF}" >> "${GITHUB_OUTPUT}"
+
+      - name: Read and cross-check version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./${PACKAGE_DIR}/package.json').version")"
+          NAME="$(node -p "require('./${PACKAGE_DIR}/package.json').name")"
+          if [ "${NAME}" != "@yukariyukaro/bilibili-cli" ]; then
+            echo "包名异常：${NAME}" >&2
+            exit 1
+          fi
+          if [ "${VERSION}" != "${REF_TAG#bilibili-cli-v}" ]; then
+            echo "标签与 package.json 版本不一致：${REF_TAG} / ${VERSION}" >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+        env:
+          REF_TAG: ${{ steps.target.outputs.ref }}
+
+      - name: Decide whether to publish
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISH="false"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${{ inputs.dry_run }}" != "true" ]; then
+            PUBLISH="true"
+          fi
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] && [ "${{ inputs.dry_run }}" = "false" ]; then
+            PUBLISH="true"
+          fi
+          echo "publish=${PUBLISH}" >> "${GITHUB_OUTPUT}"
+          echo "是否发布：${PUBLISH}"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: ${{ env.PACKAGE_DIR }}/package-lock.json
+
+      - name: Install build toolchain
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run typecheck
+
+      - name: Offline end-to-end regression
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm test
+        env:
+          CI: "true"
+
+      - name: Build release directory
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release/bilibili-cli"
+          node "${PACKAGE_DIR}/scripts/build.mjs" "${OUT}"
+          echo "out=${OUT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pack tarball
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="${RUNNER_TEMP}/release"
+          npm pack "${{ steps.build.outputs.out }}" --pack-destination "${DEST}" --json > "${DEST}/pack.json"
+          FILE="$(node -p "require('${DEST}/pack.json')[0].filename")"
+          echo "tarball=${DEST}/${FILE}" >> "${GITHUB_OUTPUT}"
+          echo "Packed ${FILE}"
+
+      - name: Assert tarball contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          TGZ="${{ steps.pack.outputs.tarball }}"
+          LIST="$(tar -tzf "${TGZ}" | sed 's|^package/||')"
+          fail() { echo "打包内容不合规：$1" >&2; exit 1; }
+          echo "${LIST}" | grep -qx "dist/cli/bili.mjs" || fail "缺少 dist/cli/bili.mjs"
+          echo "${LIST}" | grep -qx "package.json" || fail "缺少 package.json"
+          for bad in src/ test/ scripts/ tsconfig.json; do
+            if echo "${LIST}" | grep -q "^${bad}"; then fail "包含 ${bad}"; fi
+          done
+          if echo "${LIST}" | grep -qE '\.(m?ts|map)$'; then fail "包含 TypeScript 或 sourcemap"; fi
+          if echo "${LIST}" | grep -qE '(^|/)node_modules/'; then fail "包含 node_modules"; fi
+
+      - name: Smoke test from tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          TGZ="${{ steps.pack.outputs.tarball }}"
+          WORK="${RUNNER_TEMP}/smoke"
+          mkdir -p "${WORK}"
+          cd "${WORK}"
+          export BILIBILI_SKILL_HOME="${WORK}/state"
+          VERSION="$(npm exec --yes --package "${TGZ}" -- bilibili --version)"
+          echo "smoke version: ${VERSION}"
+          [ "${VERSION}" = "${{ steps.version.outputs.version }}" ] || { echo "版本不一致" >&2; exit 1; }
+          npm exec --yes --package "${TGZ}" -- bilibili doctor --json
+          [ ! -e "${WORK}/bili_credential.json" ] || { echo "冒烟测试产生了凭证" >&2; exit 1; }
+
+      - name: Publish to npm
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "缺少 NPM_TOKEN secret" >&2
+            exit 1
+          fi
+          npm publish "${{ steps.pack.outputs.tarball }}" --registry https://registry.npmjs.org/ --access public
+
+      - name: Dry run summary
+        if: steps.gate.outputs.publish != 'true'
+        run: echo "dry run：已构建并验收 ${{ steps.pack.outputs.tarball }}，未发布。"
+
+      - name: Verify published version
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          for i in $(seq 1 20); do
+            if npm view "@yukariyukaro/bilibili-cli@${VERSION}" version >/dev/null 2>&1; then
+              echo "已可解析：${VERSION}"
+              npm view @yukariyukaro/bilibili-cli dist-tags --json
+              exit 0
+            fi
+            echo "等待 registry 索引（${i}/20）…"
+            sleep 30
+          done
+          echo "超时：registry 仍不可解析 ${VERSION}（可能仍在自动审核）" >&2
+          exit 1
+
+      - name: Upload tarball
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bilibili-cli-${{ steps.version.outputs.version }}
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: warn
+          retention-days: 14

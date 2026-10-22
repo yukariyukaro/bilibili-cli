@@ -2,29 +2,9 @@
 
 更新时间：2026-10-22
 
-## GitHub 执行索引（当前工作方向）
-
-检查点源码已推送：[aaafa3f](https://github.com/yukariyukaro/bilibili-cli/commit/aaafa3fb4ea087ae270f8ce44fad8f8ee0b76a96)，文档索引见 [d51b9d7](https://github.com/yukariyukaro/bilibili-cli/commit/d51b9d7f7ddcced3c80235ac1dcc39f4166ac8a2)。剩余工作收敛为 **5 条主题 issue**，子项不单独开票；日常从 issue 选方向，阶段与证据留在本文件：
-
-| 主题 | 覆盖路线图 | 当前边界 | Issue |
-| --- | --- | --- | --- |
-| 发布与升级 | 阶段 2.5、U19 剩余、U20–U22 | 1.1.0 未发布；Skill 与 CLI 版本/安装面未打通 | [#22](https://github.com/yukariyukaro/bilibili-cli/issues/22) |
-| 数据正确性 | 阶段 1/3.2、U03/U08 | 真实只读 18/1/3；min_seqno、ID 精度、超过 30 条分页未收口 | [#23](https://github.com/yukariyukaro/bilibili-cli/issues/23) |
-| 私信 AI 闭环 | 阶段 3.1–3.3、U01 剩余/U02/U04/U11–U13 | 能转发白名单私信到 cc-connect；默认拒绝回复，无 agent 绑定/自动策略 | [#24](https://github.com/yukariyukaro/bilibili-cli/issues/24) |
-| 评论 AI 闭环 | 阶段 3.4、U14 | 能读评论；无通知轮询、精确楼中楼目标解析与自动回复 | [#25](https://github.com/yukariyukaro/bilibili-cli/issues/25) |
-| 运行与运维 | 阶段 3.1/3.2/4/5、U07/U09/U10/U15–U18、跨平台 | 生命周期/状态有离线基础；无控制台、真实 Docker/CI、性能基线 | [#26](https://github.com/yukariyukaro/bilibili-cli/issues/26) |
-
-> 旧 20+1 条 issue 已于 2026-10-22 删除并合并为本表 5 条，编号不复用。U05/U06 与 U19 的本地部分已完成，不重复立项；U19 的 npm 首发与远端 Skill 验证归 #22。
-
-> **本次快照验收**：scoped 包的 npm ci、typecheck、完整 npm test 均 exit 0，14 顶层组通过（含新增 tarball npm exec）、bridge 失败 0；证据 Pd62uK。只读真实红灯仍保留，不以本次离线绿灯宣称真实 AI/评论闭环通过。
-
-> **当前交接**：检查点已提交并推送；剩余工作按 5 条主题 issue 推进。本轮不发布 npm、不继续实现 AI 回复。阶段 1/2 离线迁移已完成，真实只读 18 pass / 1 fail / 3 skip（exit 1）红灯保留，真实 bridge 入站与 AI 回复闭环未验收，详见 [测试台账](test/bridge/BASELINE.md)。下文“未 commit/push、远端 49c530e、真实只读未执行”等是历史时点记录，不能作为当前实时状态。
-
-> **后续产品方向**：用户选择外部 cc-connect/agent、自动回复、私信与评论；尚未实现。自动发送的显式 opt-in、白名单、限速、撤销与审计需与现有逐次确认规则协调，当前代码仍默认拒绝。
-
 文档归属：本文件与 AGENTS.md、CONTEXT.md 集中在 Skill 产品目录。下文显式 `skills/bilibili-cli/` 前缀及历史 demo 路径仍按 Git 根目录描述；Markdown 链接按本文件当前位置解析。未移动 Git 根目录或其他项目。
 
-执行记录（截至 2026-10-22 检查点）：阶段 1 离线基线完成（真实账号 E2E 未验）；阶段 2 迁移、清理与安装验收完成，已推送 `aaafa3f` 与 `d51b9d7`，尚未 npm 发布。独立工作树 scoped 快照 `npm ci`/`typecheck`/`npm test` exit 0，14 个顶层组通过、bridge 失败 0（证据 Pd62uK）；build/source 两条 npm pack/install/PATH、生命周期 18/18、协议两路径 10/10、安装套件每路径 15 pass/7 skip/0 fail、cleanup 双路径 15/15 通过。真实只读 18 pass / 1 fail / 3 skip（exit 1），min_seqno 断言失败保留；真实 bridge 入站、cc-connect/AI 回复未验收。Docker `--check` exit 0（75 文件/34 mjs/11 检查），未构建或运行容器。当前包版本 1.1.0 Unreleased，不是发布声明；真实账号验收未执行时不宣称真实收发已验证。
+执行记录（2026-10-22 最终）：阶段 1 离线基线完成（真实账号 E2E 未验）；阶段 2 本轮迁移、清理与安装验收完成，尚未发布。Lead 执行 `npm run typecheck && npm test` 为 exit 0（wm81Zo）：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过；Docker `--check` exit 0（74 白名单/34 mjs），daemon 实际未运行。旧 `lib/*.mjs` 与 `bilibili-bridge/` demo 已删除，仅保留 `cli/bili.mjs` 薄 shim。阶段 3–5 未开始。远端仍为旧提交 `49c530e`，1.1.0 未 commit/push；literal npx 离线 wrapper 未验，不能宣称远端 npx 新版可验证。当前包版本 1.1.0 Unreleased，不是发布声明。测试入口、历史结果与证据缺口见 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)；真实账号验收未执行时不宣称真实收发已验证。
 
 ## 一、本文范围
 
@@ -54,12 +34,12 @@ E2E 不是做完一次就结束：先建立基线，迁移后复验，重构每�
 - 已实现 27 条命令：原 23 条 + `bridge run/status/stop` + `skills cleanup`。run 是独立长期事件流，status/stop 是有限控制请求；cleanup 使用 `--path <绝对路径> [--confirm]`，默认预览，confirm 只把已知完整历史副本隔离到同级可回滚位置、不永久删除。`run` 不能放进 `bilibili --jsonl`，会快速返回 STREAM_ONLY（退出码 2），后续行继续处理；原 23 条命令名称/字段/默认值/信封不变。
 - bridge 通过已安装的 `bilibili --jsonl` 调用 CLI，并连接 cc-connect；当前不外接内置 agent 引擎，也不打包 cc-connect 的 Go 引擎。不能把“仿照 cc-connect 架构”误解成“已经具备同等分层”。
 - 发布包入口是 `dist/cli/bili.mjs`；`cli/bili.mjs` 仅保留为兼容薄启动器。版本由包根 `package.json` 单一来源驱动，当前 1.1.0 Unreleased。
-- 最终回归（Lead，`npm run typecheck && npm test`）exit 0：14 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（75 文件/34 mjs/11 检查），Docker daemon 实际未运行。typecheck 0，运行时源码已冻结。真实只读另计：18 pass / 1 fail / 3 skip，exit 1，不能把离线 exit 0 当作真实读取通过。
-- 阶段 1 离线基线完成；真实只读已执行（18 pass / 1 fail / 3 skip，exit 1），真实写与 bridge/AI 闭环未验收，不宣称真实收发通过。两条历史红灯（pending 白名单/顺序、饱和排空）已修复并由 2/2 回归覆盖。
+- 最终回归（Lead，`npm run typecheck && npm test`）exit 0：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（74 白名单/34 mjs），Docker daemon 实际未运行。typecheck 0，运行时源码已冻结。
+- 阶段 1 离线基线完成；真实账号只读/写 E2E 未执行，不宣称真实收发通过。两条历史红灯（pending 白名单/顺序、饱和排空）已修复并由 2/2 回归覆盖。
 - 清理边界：历史快照按 per-snapshot 返回版本（`57efd8d` = 0.1.5，`45cf9a4`/`49c530e` = 1.0.0）；仅处理 unmanaged pristine 真目录，`npm ci` 后含 node_modules 拒绝，canonical 或任意 ancestor lock 存在即拒（含空 lock，保守 false-negative）；`O_NOFOLLOW` 平台不跟随最终文件 link，Windows 用 `O_RDONLY` + 前后 `lstat/fstat` 的 inode/mode/nlink/size/mtime/ctime 复核，属非对抗恶意并发边界；纯文档 fixture 固定 LF（`.gitattributes`）。旧名 `bilibili-agent` 只有文字记录、无 hash，不自动清。官方 `npx skills remove` 是 managed 安装的主路径；literal npx 离线 wrapper 未验，直接安装 skills 1.7.4 的临时 local copy/remove 已验证。
 - 当前真实回复入口没有逐次确认交互，不能为了让往返测试通过而自动同意发送；写开关、互关限制和审计继续有效。
 - 本地 Python/TS API 目录属于独立兄弟仓库，不复制进 CLI，也不纳入本仓库的迁移任务。
-- 阶段 3–5（分层重构、绑定与 agent、Web 控制台、宿主插件）未开始，不自动实现。检查点已推送 `aaafa3f`/`d51b9d7`，但 1.1.0 未发布；不能宣称远端 npx 新版可验证，也不能用本地 local copy 结果替代远端 npx 证据。
+- 阶段 3–5（分层重构、绑定与 agent、Web 控制台、宿主插件）未开始，不自动实现。远端仓库仍是旧提交 `49c530e`，1.1.0 未 commit/push；不能宣称远端 npx 新版可验证，也不能用本地 local copy 结果替代远端 npx 证据。
 
 当前采用一个 npm 包、一个 `bilibili` 命令入口，bridge 作为包内独立子系统按需加载。源码位于 Skill 目录内不等于运行时代码写进 Skill 文档；产品源码在 `src/`，Skill 文档与运行时保持分离。
 
@@ -84,7 +64,7 @@ E2E 不是做完一次就结束：先建立基线，迁移后复验，重构每�
 - 形成明确的接口与状态约定，测试预期和实现引用同一契约。
 - 现有 `AGENTS.md` 与拟实施方案的冲突逐项确认；规则修改和代码变更一起审核，不为通过测试删除安全限制。
 
-## 五、阶段 1：建立 bridge × CLI 的 E2E 基线（离线基线完成；真实业务未验；#23/#24）
+## 五、阶段 1：建立 bridge × CLI 的 E2E 基线（离线基线完成；真实业务未验）
 
 ### 工作项
 
@@ -112,9 +92,9 @@ E2E 不是做完一次就结束：先建立基线，迁移后复验，重构每�
 - 默认回归不连接 B 站、不产生真实消息副作用。
 - 原有 CLI 回归不退化，bridge 测试纳入明确的统一测试入口。
 - 已通过、已跳过、失败和待人工验证的场景分别输出；不以 mock 通过替代真实验收。
-- 当前状态：历史基线结果与两条红灯记录在 [测试台账](test/bridge/BASELINE.md)。最终 `npm run typecheck && npm test` exit 0：14 个顶层组通过、bridge 失败 0；build bridge 9/0，source 8/0 + 1 skip；生命周期 18/18，协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2。离线基线据此关闭；真实只读为 18 pass / 1 fail / 3 skip（exit 1），min_seqno 红灯未解释，真实写与 AI 闭环未验收，不宣称真实收发通过。
+- 当前状态：历史基线结果与两条红灯记录在 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)。最终 `npm run typecheck && npm test` exit 0：13 个顶层组通过、bridge 失败 0；build bridge 9/0，source 8/0 + 1 skip；生命周期 18/18，协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2。离线基线据此关闭；真实账号只读/写 E2E 未执行，不宣称真实收发通过。
 
-## 六、阶段 2：迁移进 CLI 产品源码（迁移/清理/安装验收完成；未发布；#22）
+## 六、阶段 2：迁移进 CLI 产品源码（本轮迁移/清理/安装验收完成；未发布）
 
 ### 当前实际布局
 
@@ -168,8 +148,8 @@ skills/bilibili-cli/
 - [x] 旧 `lib/*.mjs` 与 `bilibili-bridge/` demo 已由 Lead 在迁移绿灯后删除；仅保留薄 shim，无第二实现、无旧入口。
 - [x] 包清单、锁文件、构建复制、发布文件列表、依赖闭包与构建产物路径已通过最终 build/source 双路径安装回归；`release/` 仍只由构建生成。
 - [x] 实现旧版 Skill 清理 `skills cleanup`：官方 `npx skills remove` 为主路径；自制品只处理 unmanaged pristine 真目录；默认 preview、confirm 同级隔离、可手动回滚；本地双路径 15/15。
-- [x] 最终全量 `npm run typecheck && npm test` exit 0（14 顶层组通过、bridge 失败 0）；离线阶段 1/2 据此收口。
-- [ ] 远端 npx 新版验证（外部未验，不计入本轮阶段 2 本地验收）：检查点已 push，但 npm 1.1.0 未发布；literal npx 离线 wrapper 未验。需在发布后使用独立 scope、干净缓存，安装后核对 `dist/` 与版本，不得用 local copy 结果替代。
+- [x] 最终全量 `npm run typecheck && npm test` exit 0（13 顶层组通过、bridge 失败 0）；离线阶段 1/2 据此收口。
+- [ ] 远端 npx 新版验证（外部未验，不计入本轮阶段 2 本地验收）：当前远端仍为 `49c530e`、1.1.0 未 commit/push；literal npx 离线 wrapper 未验。需 push 后使用独立 scope、安装后 `npm ci`/`npm run compile`，不得用 local copy 结果替代。
 
 ### 旧版 Skill 清理：官方 remove 优先，自制品范围受限（本地验收完成；远端 npx 未验）
 
@@ -202,15 +182,15 @@ skills/bilibili-cli/
 
 #### 远端 npx 验证边界
 
-- 检查点已推送 `aaafa3f`/`d51b9d7`，但 npm 上的 1.1.0 仍不存在。因此不能宣称“远端 npx 安装的新版”可验证，也不能用本地 local copy 结果证明远端 npx。
+- 远端仓库仍是旧提交 `49c530e`；新的 1.1.0 未 commit/push。因此不能宣称“远端 npx 安装的新版”可验证，也不能用本地 local copy 结果证明远端 npx。
 - literal npx 离线 wrapper 未验（此前失败）；直接安装 skills 1.7.4 后在临时 local copy 执行 remove 已验证，但这只证明本地/安装器路径，不是远端 npx 新版证据。
-- 未来远端验证必须使用与现有安装不同的 scope/目录避免同名覆盖；发布后用干净 npx 缓存安装预编译包，再运行 CLI 与 cleanup；只有公共 registry 的安装产物 E2E 才能记为已验证。
+- 未来远端验证必须使用与现有安装不同的 scope/目录避免同名覆盖；安装后先 `npm ci` 与 `npm run compile` 生成可执行产物，再运行 cleanup；只有 commit/push 后使用独立 scope 的安装产物 E2E 才能记为已验证。
 
 #### 安装产物 E2E 验收
 
 - 自制 cleanup 已验证默认 preview、confirm 同级 quarantine、手动 rollback、canonical/ancestor lock/symlink/未知 hash/node_modules/自定义内容/凭证哨兵/links 的拒绝矩阵。官方 skills@1.7.4 remove 仅验证了TEMP本地copy目录与project lock entry清理，未验证真实用户多agent链接安装。旧名 `bilibili-agent` 不在允许清单，不自动识别清理；不把未覆盖场景报为通过。
 - 凭证与状态文件不被读取或移动；失败不留下 half-state；所有测试在仓库外的真实安装产物上执行。
-- 远端 npx 新版验证在 npm 发布与独立 scope 条件满足前保持“未验证”，不作为发布证据。
+- 远端 npx 新版验证在 commit/push 与独立 scope 条件满足前保持“未验证”，不作为发布证据。
 
 本轮本地/离线验收已完成；远端 npx 新版与真实 B 站业务验证仍不宣称。
 
@@ -223,9 +203,9 @@ skills/bilibili-cli/
 - build 与 source 两条安装路径均在仓库外用真实 PATH 通过；安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷回归 2/2；旧 `lib`/demo 删除后无第二实现、无悬挂入口。
 - cleanup 双路径各 15/15、默认 pristine 12/12、非对象 credential AUTH 哨兵通过；官方 remove 覆盖 managed 安装，自制品只处理 unmanaged pristine。
 - Docker `--check` exit 0（74 白名单/34 mjs）；Docker daemon 实际未运行，不能据此宣称容器 E2E 通过。
-- 检查点已推送，但 1.1.0 未发布；literal npx 离线 wrapper 未验，直接 skills 1.7.4 临时 local copy/remove 已验证但不能替代远端 npx。真实只读 18/1/3 未收口，真实写未验，不宣称发布。
+- 远端仍为 `49c530e`，1.1.0 未 commit/push；literal npx 离线 wrapper 未验，直接 skills 1.7.4 临时 local copy/remove 已验证但不能替代远端 npx。真实 B 站读写未验，不宣称发布。
 
-## 七、阶段 2.5：升级 Skill 即同步 CLI（未开始，发布形态待裁决；#22）
+## 七、阶段 2.5：升级 Skill 即同步 CLI（未开始，发布形态待裁决）
 
 本节是 2026-10-22 新增的待做需求与验收草案，**尚未实现**，不修改任何安装逻辑；读到本节不等于已批准动代码。
 
@@ -274,7 +254,7 @@ skills/bilibili-cli/
 
 可与阶段 3 并行，但**不改变阶段 3 的排期事实**：阶段 3 仍未开始，读本节不代表已批准分层重构。
 
-## 八、阶段 3：仿照 cc-connect 分层改造（未开始；#24/#25/#26）
+## 八、阶段 3：仿照 cc-connect 分层改造（未开始）
 
 本节是目标设计，尚未实施。当前 bridge 只有已迁移的单进程装配与私信文本轮询，核心引擎、agent 适配器、会话绑定、受控回复和评论通道均未交付；不能把阶段 2 的命令与传输层等同为阶段 3 分层完成。
 
@@ -317,7 +297,7 @@ skills/bilibili-cli/
 - 超过单页的积压处理方向经真实接口验证，不仅依据参数名推断。
 - 只读、默认拒绝、白名单、逐次授权和未知状态不重发等约束保持不变。
 
-## 九、阶段 4：可视化与 Skill 引导（未开始；#26）
+## 九、阶段 4：可视化与 Skill 引导（未开始）
 
 当前没有 `web/` 控制台，也没有 Skill setup/operate 闭环；以下是设计要求，不是现有功能。
 
@@ -339,7 +319,7 @@ skills/bilibili-cli/
 - 关闭页面不自动等于停止 bridge；界面清楚说明服务是否继续运行。
 - CLI、Skill、页面使用同一控制契约，文档中没有虚构命令。
 
-## 十、阶段 5：可选 coding agent 插件（未开始，可选；#26）
+## 十、阶段 5：可选 coding agent 插件（未开始，可选）
 
 当前没有 Codex/Claude Code 插件或 hook 实现；本节仅保留评估方向。
 
@@ -373,7 +353,7 @@ skills/bilibili-cli/
 ### 单一版本源
 
 - `package.json` 是唯一版本源；`src/lib/version.mts` 从包根读取并做字符串守卫。`--version`、`schema.version`、`skills list` 必须一致。
-- 当前 `1.1.0 Unreleased`（尚未发布）：新增 bridge 命令与 `skills cleanup` 属于兼容 minor；检查点已 commit/push，最终离线 E2E 与安装产物验收已通过，但 npm 尚未发布，不能称为已发布。未发布内容只保留在 `Unreleased`，不假造 tag、日期或发布记录。
+- 当前 `1.1.0 Unreleased`（尚未发布）：新增 bridge 命令与 `skills cleanup` 属于兼容 minor；最终 E2E 与安装产物验收已通过，但仍未 commit/push 或发布，不能称为已发布。未发布内容只保留在 `Unreleased`，不假造 tag、日期或发布记录。
 
 ### 语义化版本
 
@@ -395,24 +375,24 @@ skills/bilibili-cli/
 - 没有用户明确请求时，不 commit、不 push、不打 tag、不发布。
 - 每次准备 commit/push 前更新 `skills/bilibili-cli/CHANGELOG.md`：记录用户可见变化、兼容影响、已验证项和未验证项；不以日志替代测试证据。
 - 类型检查、构建、真实打包安装 E2E、变更审查未完成前，不把变更记录成“已验收”；未验证、未发布内容保留在 Unreleased。
-- 旧版 Skill 清理已本地/离线验收（双路径 15/15），但远端 npx 新版未验；literal npx 离线 wrapper 未验、npm 1.1.0 未发布。未完成公共 registry + 独立 scope 验证前，不写入“远端 npx 已支持”。
+- 旧版 Skill 清理已本地/离线验收（双路径 15/15），但远端 npx 新版未验；literal npx 离线 wrapper 未验、远端仍为 `49c530e`。未完成远端独立 scope 验证前，不写入“远端 npx 已支持”。
 
 ## 十二、任务台账
 
-| 阶段 | 状态 | 证据或剩余工作 | 执行 Issue |
-| --- | --- | --- | --- |
-| 0 固定边界和验收契约 | 部分完成 | 首版命令、有限/长流、退出码、schema 已固化；绑定/审批/agent 会话契约未完成 | #24 |
-| 1 bridge × CLI E2E 基线 | 完成（离线基线；真实业务未验） | 最终 npm test exit 0：14 顶层组通过、bridge 失败 0；build 9/0、source 8/0+1 skip，生命周期 18/18，协议两路径 10/10，安装套件每路径 15/7/0，原缺陷 2/2；真实只读 18/1/3（exit 1），真实写与 AI 闭环未验收 | #23 / #24 |
-| 2 迁入唯一产品源码与统一交付 | 完成（迁移/清理/安装验收；未发布） | 27 命令、版本单源、兼容 shim、旧 lib/demo 删除、cleanup 双路径 15/15、安装套件与 Docker check 已验；检查点已 push，远端 npx 新版未验（npm 未发布） | #22 |
-| 2.5 升级 Skill 即同步 CLI | 未开始（发布形态待裁决） | 版本一致性检测、`skills status`、`skills link` 均未实现；现场样本 Skill 1.0.0 / CLI 1.1.0 即该分叉；A/B/C 发布形态待用户裁决 | #22 |
-| 3.1 生命周期与异常收口 | 未开始 | 当前只有单进程装配；故障注入后的终态/无悬挂任务未按本阶段验收 | #26 |
-| 3.2 私信增量同步与可靠事件存储 | 未开始 | sessions/new、序号分页、同步游标与消费确认未实现 | #23 / #26 |
-| 3.3 agent 适配器、绑定与受控回复 | 未开始 | 无 agent 适配器、会话绑定、草稿/逐次审批闭环 | #24 |
-| 3.4 评论通知与正确回复路由 | 未开始 | 无评论通知增量与楼中楼目标定位 | #25 |
-| 4 Web 控制台与 Skill setup/operate | 未开始 | 无 `web/`、控制台或 setup 闭环 | #26 |
-| 5 Claude Code/Codex 薄插件 | 未开始（可选） | 未核实宿主能力，无插件/hook 实现 | #26 |
+| 阶段 | 状态 | 证据或剩余工作 |
+| --- | --- | --- |
+| 0 固定边界和验收契约 | 部分完成 | 首版命令、有限/长流、退出码、schema 已固化；绑定/审批/agent 会话契约未完成 |
+| 1 bridge × CLI E2E 基线 | 完成（离线基线；真实业务未验） | 最终 npm test exit 0：13 顶层组通过、bridge 失败 0；build 9/0、source 8/0+1 skip，生命周期 18/18，协议两路径 10/10，安装套件每路径 15/7/0，原缺陷 2/2；真实账号只读/写未执行 |
+| 2 迁入唯一产品源码与统一交付 | 完成（本轮迁移/清理/安装验收；未发布） | 27 命令、版本单源、兼容 shim、旧 lib/demo 删除、cleanup 双路径 15/15、安装套件与 Docker check 已验；远端 npx 新版未验，未 commit/push |
+| 2.5 升级 Skill 即同步 CLI | 未开始（发布形态待裁决） | 版本一致性检测、`skills status`、`skills link` 均未实现；现场样本 Skill 1.0.0 / CLI 1.1.0 即该分叉；A/B/C 发布形态待用户裁决 |
+| 3.1 生命周期与异常收口 | 未开始 | 当前只有单进程装配；故障注入后的终态/无悬挂任务未按本阶段验收 |
+| 3.2 私信增量同步与可靠事件存储 | 未开始 | sessions/new、序号分页、同步游标与消费确认未实现 |
+| 3.3 agent 适配器、绑定与受控回复 | 未开始 | 无 agent 适配器、会话绑定、草稿/逐次审批闭环 |
+| 3.4 评论通知与正确回复路由 | 未开始 | 无评论通知增量与楼中楼目标定位 |
+| 4 Web 控制台与 Skill setup/operate | 未开始 | 无 `web/`、控制台或 setup 闭环 |
+| 5 Claude Code/Codex 薄插件 | 未开始（可选） | 未核实宿主能力，无插件/hook 实现 |
 
-下一次工作顺序：优先 #23 收口真实读取红灯，再按 #24/#25 做 AI 闭环；#22 的版本诊断/发布形态裁决可并行，#26 的生命周期/存储/跨平台可穿插。真实只读/写与远端 npx 验证仍作为独立未验项保留，不与实现混在一起。不同时迁移、重构和开发插件；每阶段完成后记录实际命令、测试结果、跳过项与剩余风险。
+下一次工作顺序：阶段 2.5（需先裁决发布形态 A/B/C）可先行或与阶段 3.1 并行；阶段 3.1 从生命周期/异常收口开始；阶段 1/2 的本地/离线收尾已完成。真实 B 站只读/写、远端 npx 新版验证仍作为独立未验项保留，不与阶段 3 实现混在一起。不同时迁移、重构和开发插件；每阶段完成后记录实际命令、测试结果、跳过项与剩余风险。
 
 ## 十三、参考与证据边界
 
@@ -422,7 +402,7 @@ skills/bilibili-cli/
 - [lark-cli：CLI 与 Agent Skill 分层交付](https://github.com/larksuite/cli)
 - 本地依据：`AGENTS.md`、`skills/bilibili-cli/src/`、`skills/bilibili-cli/test/bridge/`、`skills/bilibili-cli/scripts/`、`skills/bilibili-cli/references/cli-contract.md`、`skills/bilibili-cli/CHANGELOG.md` 和 `bilibili-api-python/bilibili_api/session.py`。
 
-阶段 1 的历史 E2E 结果、两条红灯和证据边界见 [测试台账](test/bridge/BASELINE.md)。最终 Lead 执行 `npm run typecheck && npm test` 为 exit 0（Pd62uK）：14 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（75 文件/34 mjs/11 检查），Docker daemon 实际未运行。ts-service review 原 P1 已解除：outbound nullish/raw 兼容、non-object credential 返回 AUTH(3)；mutual 判定仍严格 ===6。阶段 1 离线基线据此关闭；阶段 2 迁移/清理/安装验收完成，检查点已推送。真实只读为 18 pass / 1 fail / 3 skip（exit 1），真实写与 AI 闭环未验收；没有发布或打 tag。literal npx 离线 wrapper 未验，直接安装 skills 1.7.4 的临时 local copy/remove 已验证，但不能作为远端 npx 新版证据。
+阶段 1 的历史 E2E 结果、两条红灯和证据边界见 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)。最终 Lead 执行 `npm run typecheck && npm test` 为 exit 0（wm81Zo）：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（74 白名单/34 mjs），Docker daemon 实际未运行。ts-service review 原 P1 已解除：outbound nullish/raw 兼容、non-object credential 返回 AUTH(3)；mutual 判定仍严格 ===6。阶段 1 离线基线据此关闭；阶段 2 本轮迁移/清理/安装验收完成。真实 B 站只读/写往返未执行，没有发布或打 tag。远端仓库仍是旧提交 `49c530e`，1.1.0 未 commit/push；literal npx 离线 wrapper 未验，直接安装 skills 1.7.4 的临时 local copy/remove 已验证，但不能作为远端 npx 新版证据。
 
 ## 十四、本次对话交接摘要
 
@@ -441,7 +421,7 @@ skills/bilibili-cli/
 | --- | --- | --- |
 | 已明确的目标 | 可视化、会话绑定、Skill 引导、统一能力和可靠 E2E | 作为各阶段验收要求 |
 | 当前推荐方案 | 单 npm 包，`bilibili bridge run/status/stop` 与 `skills cleanup` 已落地；包内 bridge 子系统按需加载；静态 Web UI 尚未实现 | bridge 命令、cleanup 与版本单源已落地；Web 控制台属阶段 4，不能宣称已有 |
-| 升级与清理 | `skills cleanup` 已实现并本地双路径 15/15；官方 remove 为 managed 主路径，自制品仅 unmanaged pristine | 拒绝 canonical/ancestor skill lock/symlink/含 node_modules 或自定义内容/凭证/links；绝对显式 path、默认 preview、已知历史精确清单+SHA256、confirm 同级 quarantine/手动回滚、无安装钩子；旧名 `bilibili-agent` 无 hash 不自动清；检查点已 push，但 npm 1.1.0 未发布，literal npx 离线 wrapper 未验，npx 新版需发布后独立 scope+干净缓存验证，当前不可验 |
+| 升级与清理 | `skills cleanup` 已实现并本地双路径 15/15；官方 remove 为 managed 主路径，自制品仅 unmanaged pristine | 拒绝 canonical/ancestor skill lock/symlink/含 node_modules 或自定义内容/凭证/links；绝对显式 path、默认 preview、已知历史精确清单+SHA256、confirm 同级 quarantine/手动回滚、无安装钩子；旧名 `bilibili-agent` 无 hash 不自动清；远端 `49c530e` 未 push，literal npx 离线 wrapper 未验，npx 新版需独立 scope+npm ci/compile，当前不可验 |
 | 插件定位 | 各宿主的薄入口，共用核心与账号同步状态 | 验证官方能力后选择插件、hook 或 Skill |
 | cc-connect 关系 | 参考其分层；现有外部 cc-connect 路径是否长期保留尚待决定 | 不默认既重造完整 cc-connect，又强制用户安装它 |
 | 自动执行 | 不实时插话不等于不能自动处理；可选择主动拉取或由引擎调度专用会话 | 明确“收消息、触发 agent、发出回复”三个独立开关 |
@@ -511,7 +491,7 @@ skills/bilibili-cli/
 
 ## 十七、尚未完成的细项与待决策问题
 
-以下事项归入前面的阶段台账，不代表额外扩大范围；主题归属以顶部执行索引和第十二节任务台账为准。
+以下事项归入前面的阶段台账，不代表额外扩大范围。
 
 | 编号 | 待完成事项 | 归属 | 完成证据 |
 | --- | --- | --- | --- |
@@ -533,7 +513,7 @@ skills/bilibili-cli/
 | U16 | 补齐 Skill 的渐进式文档与 setup/操作流程，检测版本或能力不匹配 | 阶段 4 | 新安装用户可完成闭环，重复 setup 不破坏已有配置 |
 | U17 | 核实 Codex/Claude Code 官方插件与 hook 能力，试点一个薄入口 | 阶段 5 | 实际安装、生命周期、会话和多客户端测试 |
 | U18 | 以实测而非猜测比较空闲、轮询、任务执行与页面打开时的资源占用 | 阶段 4–5 | 记录 CPU、内存、请求数量和进程数量；不承诺“只有几 MB” |
-| U19 | 旧版 Skill 清理：官方 `npx skills remove` 为主路径；自制品仅 unmanaged pristine | 阶段 2 | 本地完成：双路径各 15/15、默认 pristine 12/12、非对象 credential AUTH 哨兵通过；拒绝 canonical/ancestor lock（含空）/symlink/links/node_modules/自定义内容/凭证；per-snapshot 0.1.5/1.0.0、SHA256、O_NOFOLLOW/Windows 复核、LF fixture。未完成：npm 1.1.0 未发布；literal npx 离线 wrapper 未验；npx 新版需发布后独立 scope + 干净缓存验证 |
+| U19 | 旧版 Skill 清理：官方 `npx skills remove` 为主路径；自制品仅 unmanaged pristine | 阶段 2 | 本地完成：双路径各 15/15、默认 pristine 12/12、非对象 credential AUTH 哨兵通过；拒绝 canonical/ancestor lock（含空）/symlink/links/node_modules/自定义内容/凭证；per-snapshot 0.1.5/1.0.0、SHA256、O_NOFOLLOW/Windows 复核、LF fixture。未完成：远端 `49c530e` 未 push，literal npx 离线 wrapper 未验，npx 新版需独立 scope+npm ci/compile |
 | U20 | 版本一致性检测与结构化信号：`doctor.install`、`skills status`、不一致时的明确标识 | 阶段 2.5 | 真实安装下能报出 CLI 与 Skill 的版本/路径/是否一致，且不假报一致 |
 | U21 | 一键对齐命令：默认预览、用户确认后执行、失败不改现状、可回滚 | 阶段 2.5 | 升级 Skill 后一条命令让 `bilibili` 用上同版本 |
 | U22 | 发布形态裁决：A 预编译随 Skill / B 首次调用自举 / C 显式对齐 | 阶段 2.5 | 用户裁决后写入路线图与 CHANGELOG，再实现终态 |
@@ -546,7 +526,7 @@ skills/bilibili-cli/
 - 不将本文的推荐方案视为已批准全部实现；逐项推进，按当前用户请求决定本轮范围。
 - 不擅自恢复 DSH/MCP 层，不复制浏览器 Cookie，不自动开写权限或启动常驻监听。
 - 当前已落地：严格 TypeScript 源码与构建、`bridge run/status/stop`、`skills cleanup`、版本单源、`cli/bili.mjs` 兼容启动器、poll 环境变量语义。阶段 1 离线基线与阶段 2 本地迁移/清理/安装验收完成；旧 `lib`/demo 已删除。
-- 仍未验证：真实 B 站只读 18/1/3 的 min_seqno 红灯、真实写往返、真实 bridge/AI 回复；远端 npx 新版（npm 1.1.0 未发布，literal npx 离线 wrapper 未验）。直接 skills 1.7.4 临时 local copy/remove 已验，但不能替代远端证据。
+- 仍未验证：真实 B 站账号只读/写往返；远端 npx 新版（远端仍 `49c530e`，未 commit/push，literal npx 离线 wrapper 未验）。直接 skills 1.7.4 临时 local copy/remove 已验，但不能替代远端证据。
 - 阶段 3–5（分层重构、绑定与 agent、Web 控制台、宿主插件）均未开始；不能把命令/传输层伪装成分层或产品闭环已完成。
 - 版本当前为 1.1.0 Unreleased；未获用户明确请求不 commit、不 push、不打 tag、不发布。每次准备提交前更新 `CHANGELOG.md`，并区分已验证与未验证项。
 - 2026-10-22 新增待做：阶段 2.5「升级 Skill 即同步 CLI」（版本一致性检测、`skills status`、`skills link`、发布形态 A/B/C）。它只是记录下来的开发项，尚未实现；不要在回复里宣称升级后 CLI 已自动跟进。

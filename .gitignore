@@ -1,8 +1,9 @@
 node_modules/
 .venv/
 release/
-skills/bilibili-cli/dist/
-skills/bilibili-cli/.compile-*/
+packages/bilibili-cli/dist/
+packages/bilibili-cli/.compile-*/
+workbench/
 *.tgz
 *.log
 *.bak*
@@ -16,3 +17,7 @@ bilibili-skill/
 bilibili-api-python/
 bilibili-api-ts/
 .playwright-cli/
+.env
+.env.*
+!*.env.example
+release-publish/

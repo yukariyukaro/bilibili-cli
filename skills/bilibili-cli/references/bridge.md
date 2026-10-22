@@ -4,7 +4,7 @@
 
 ## 前置条件
 
-- CLI 安装方式与普通命令相同（npx 或全局安装）。bridge 会以子进程调用 PATH 上的 `bilibili --jsonl`，因此需要可执行的 `bilibili`；只用 npx 临时运行且未全局安装时，建议先全局安装。
+- bridge 会以子进程调用 PATH 上的 `bilibili --jsonl`，因此必须安装并可执行全局 `bilibili` 命令；仅有 npx 临时调用不满足此条件。若尚未安装，按 [CLI 契约](cli-contract.md) 的安装流程取得用户同意后安装并核验。
 - 连接 token 只从环境变量读取：`CC_CONNECT_BRIDGE_TOKEN`（必填）。不要把它写进命令行、正文、日志或状态输出。
 - 账号白名单：`BILIBILI_OWNER_UID`（必填，单个或逗号分隔的正安全整数）；也可用 `--owner-uids` 覆盖。
 - 服务地址：`CC_CONNECT_BRIDGE_URL`（可选，必须 `ws://` 或 `wss://`；默认 `ws://127.0.0.1:9810/bridge/ws`）；也可用 `--url`。

@@ -6,7 +6,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yukariyukaro/bilibili-cli.git",
-    "directory": "skills/bilibili-cli"
+    "directory": "packages/bilibili-cli"
   },
   "homepage": "https://github.com/yukariyukaro/bilibili-cli",
   "bugs": {
@@ -37,6 +37,9 @@
     "build": "node scripts/build.mjs",
     "compile": "node scripts/compile.mjs",
     "typecheck": "tsc --noEmit",
+    "test:release": "node test/release/run.mjs",
+    "test:release:check": "node test/release/run.mjs --check",
+    "test:release:docker": "node test/release/run.mjs --docker",
     "prepack": "node scripts/compile.mjs"
   },
   "dependencies": {

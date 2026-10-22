@@ -5,7 +5,7 @@
 不读取凭证、不挂载宿主。
 
 当前状态（本机实测）：`node skills/bilibili-cli/test/bridge/docker/run.mjs --check`
-本次提交快照为 `static-checked` / exit 0（75 个 context 文件、34 个 `.mjs` 通过 `node --check`、11 项静态检查）；
+为 `static-checked` / exit 0（68 个 context 文件、32 个 `.mjs` 通过 `node --check`、12 项静态检查）；
 默认 `node .../run.mjs` 为 `status=unavailable` / exit 2（Docker client 29.8.0，Server null，
 `dockerDesktopLinuxEngine` pipe 不存在）。未构建镜像、未运行容器，不宣称容器通过。
 
@@ -46,7 +46,7 @@ skills/bilibili-cli/scripts/{compile,build,closure}.mjs
 skills/bilibili-cli/cli/bili.mjs         兼容 shim（只转 dist/lib/command.mjs）
 skills/bilibili-cli/package.json
 skills/bilibili-cli/package-lock.json
-skills/bilibili-cli/{SKILL.md,README.md,LICENSE,CHANGELOG.md,references/**}
+packages/bilibili-cli/{README.md,LICENSE,CHANGELOG.md} 与 skills/bilibili-cli/{SKILL.md,references/**}
 skills/bilibili-cli/test/bridge/**        offline/e2e/regressions/backend/protocol/lifecycle/lib
 Dockerfile / .dockerignore / context-manifest.json
 ```

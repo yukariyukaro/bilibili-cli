@@ -2,22 +2,22 @@
 
 ## 项目与作用域
 
-本目录是 bilibili-cli 的产品源码，提供独立 B 站 CLI、Bridge 与配套 Skill。本文仅适用于本目录及其子目录；相对路径均以本目录为基准，更深层的 AGENTS.md 优先。
+本目录是 bilibili-cli 的维护者文档（规则、上下文、发布与路线图）。CLI 产品源码在 `packages/bilibili-cli/`，Agent Skill 在 `skills/bilibili-cli/`。本文适用于本目录及其子目录；相对路径以本目录为基准，更深层的 AGENTS.md 优先。
 
-Git 根目录在 `../..`。工作区还包含独立 API 仓库和其他项目，不修改任务范围外的文件，不覆盖用户已有改动。
+Git 根目录在 `../..`。工作区还包含独立 API 仓库（`bilibili-api-ts/`、`bilibili-api-python/`，不在本仓库版本控制内）；不修改任务范围外的文件，不覆盖用户已有改动。
 
 ## 目录导航
 
-- `src/cli/`：命令入口。
-- `src/lib/`：命令契约、应用执行、API 服务与登录；`src/lib/bridge/` 为桥接子系统。
-- `test/`：安装产物、协议、生命周期与缺陷回归。
-- `scripts/`：编译、构建、依赖闭包与验收脚本。
-- `dist/`：生成的 JavaScript ESM，不手工编辑。默认发布输出为 `../../release/bilibili-cli/`，构建目标须为空。
-- [SKILL.md](SKILL.md) 与 [references](references/)：供使用者和 agent 阅读的指导与契约。
+- `../../packages/bilibili-cli/src/cli/`：命令入口。
+- `../../packages/bilibili-cli/src/lib/`：命令契约、应用执行、API 服务与登录；`src/lib/bridge/` 为桥接子系统。
+- `../../packages/bilibili-cli/test/`：安装产物、协议、生命周期与缺陷回归。
+- `../../packages/bilibili-cli/scripts/`：编译、构建、依赖闭包与验收脚本。
+- `../../packages/bilibili-cli/dist/`：生成的 JavaScript ESM，不手工编辑。默认发布输出为 `../../release/bilibili-cli/`，构建目标须为空。
+- `../../skills/bilibili-cli/SKILL.md` 与 `references/`：供使用者和 agent 阅读的指导与契约（Skill 安装只包含这两项）。
 
 ## 开发环境与命令
 
-需要 Node.js 22+。在本目录执行：
+需要 Node.js 22+。在 `packages/bilibili-cli/` 执行：
 
 ```bash
 npm ci                  # 安装依赖与开发工具
@@ -63,7 +63,7 @@ npm pack                # 源码打包前自动编译
 
 ## 按需阅读
 
-- [README.md](README.md)：产品使用与开发入口。
-- [CLI 契约](references/cli-contract.md)：命令、输出与状态语义。
+- [产品 README](../../packages/bilibili-cli/README.md)：产品使用与开发入口。
+- [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)：命令、输出与状态语义。
 - [CONTEXT.md](CONTEXT.md)：历史进度与交接；继续工作时先核对当前源码和测试，不将历史记录视为现状。
 - [实施路线图](bridge实施路线图.md)：后续阶段及验收边界；计划不代表已经实现。

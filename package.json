@@ -2,21 +2,21 @@
   "name": "bilibili-cli-repo",
   "version": "1.0.0",
   "private": true,
-  "description": "独立 B 站 CLI 与 Skill 的仓库包装；产品源码位于 skills/bilibili-cli",
+  "description": "B 站 CLI 与 Agent Skill monorepo；npm 包位于 packages/bilibili-cli",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "node skills/bilibili-cli/scripts/build.mjs",
-    "test": "node skills/bilibili-cli/scripts/verify.mjs",
-    "test:bridge": "node skills/bilibili-cli/scripts/verify.mjs",
-    "test:bridge:readonly": "node skills/bilibili-cli/test/bridge/e2e/run.mjs readonly",
-    "test:bridge:write": "node skills/bilibili-cli/test/bridge/e2e/run.mjs write",
-    "test:bridge:docker": "node skills/bilibili-cli/test/bridge/docker/run.mjs",
-    "typecheck": "npm --prefix skills/bilibili-cli run typecheck",
-    "pack:cli": "npm --prefix skills/bilibili-cli pack"
+    "build": "node packages/bilibili-cli/scripts/build.mjs",
+    "test": "node packages/bilibili-cli/scripts/verify.mjs",
+    "test:bridge": "node packages/bilibili-cli/scripts/verify.mjs",
+    "test:bridge:readonly": "node packages/bilibili-cli/test/bridge/e2e/run.mjs readonly",
+    "test:bridge:write": "node packages/bilibili-cli/test/bridge/e2e/run.mjs write",
+    "test:bridge:docker": "node packages/bilibili-cli/test/bridge/docker/run.mjs",
+    "typecheck": "npm --prefix packages/bilibili-cli run typecheck",
+    "pack:cli": "npm --prefix packages/bilibili-cli pack"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@10.15.0+sha512.486ebc259d3e999a4e8691ce03b5cac4a71cbeca39372a9b762cb500cfdf0873e2cb16abe3d951b1ee2cf012503f027b98b6584e4df22524e0c7450d9ec7aa7b"
+  "packageManager": "npm@10"
 }

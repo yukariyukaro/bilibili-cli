@@ -2,20 +2,11 @@
 
 更新时间：2026-10-22（Asia/Shanghai）。这是已完成工作的交接摘要，不替代源码、测试或发布记录。
 
-## 最新提交检查点与后续 issue 交接
-
-源码检查点 [aaafa3f](https://github.com/yukariyukaro/bilibili-cli/commit/aaafa3fb4ea087ae270f8ce44fad8f8ee0b76a96) 与文档索引 [d51b9d7](https://github.com/yukariyukaro/bilibili-cli/commit/d51b9d7f7ddcced3c80235ac1dcc39f4166ac8a2) 已推送 main。原 20+1 条 issue 已删除并合并为 5 条主题 issue：[#22 发布/升级](https://github.com/yukariyukaro/bilibili-cli/issues/22)、[#23 数据正确性](https://github.com/yukariyukaro/bilibili-cli/issues/23)、[#24 私信 AI 闭环](https://github.com/yukariyukaro/bilibili-cli/issues/24)、[#25 评论 AI 闭环](https://github.com/yukariyukaro/bilibili-cli/issues/25)、[#26 运行与运维](https://github.com/yukariyukaro/bilibili-cli/issues/26)；后续按主题方向推进，子项不再单独开票，旧编号不复用。原工作树仍保留未提交内容，后续开发先从最新远端/本隔离分支开始，不要把旧树直接全量覆盖回来。
-
-**提交快照复验**：重新 npm ci、typecheck 和完整 npm test 均 exit 0，14 顶层组通过（含新增 tarball npm exec），bridge 失败 0；证据 Pd62uK。scoped 包两安装路径均通过，历史 13 组记录不代表本次计数。真实 readonly 的 min_seqno 红灯未修、真实 AI 闭环未验，本次无真实账号读写。
-本轮用户要求保存当前实现、commit/push，剩余工作转为 GitHub issues；**不继续扩展 AI 功能、不发布 npm 包**。提交在基于最新远端 main 的独立工作树整理，原开发目录及其他项目未提交内容保留。已实现的是严格 TS 迁移、27 条命令、bridge run/status/stop、保守 cleanup 和安装回归，不是 AI 回复闭环。
-
-npm 清单已采用 `@yukariyukaro/bilibili-cli` 并适配 scoped 安装测试、tarball npm exec 验证。目标 1.1.0 尚未发布，npx registry 示例只在发布后可用；当前使用可信本地 CLI 或维护者构建 tarball。远端源码推送、远端 Skill 安装验收、全局 Skill 替换、npm 发布是四件独立工作。原全局 Skill 已移除，新版全局 Skill 尚未安装。
-
-用户选择外部 cc-connect/agent、自动回复、私信与评论；这是后续方向，不是已经实现的能力。自动发送策略与现有逐次确认规则需协调。cc-connect 通用 Bridge 协议支持任意平台注册，但尚无真实 cc-connect→AI→B站验收；视频评论字段有局部只读样本，仍需目标校验与完整契约。下文“未提交/未推送、远端49c530e、真实只读未执行”等仅指历史记录时点，当前 Git 状态以实际仓库为准。
+> 2026-10-22 仓库结构调整：CLI 源码移到 `packages/bilibili-cli/`，维护者文档在 `docs/bilibili-cli/`，Skill 只保留 `skills/bilibili-cli/{SKILL.md,references/}`。以下历史记录中的 `src/`、`test/` 路径相对 `packages/bilibili-cli/`。
 
 ## 1. 工作目录与文件归属
 
-- 后续优先从本目录 `skills/bilibili-cli/` 开始工作；项目规则在 [AGENTS.md](AGENTS.md)，阶段计划在 [实施路线图](bridge实施路线图.md)，用户文档在 [README](README.md)。
+- 后续优先从 `packages/bilibili-cli/` 开始工作；项目规则在 [AGENTS.md](AGENTS.md)，阶段计划在 [实施路线图](bridge实施路线图.md)，用户文档在 [README](../../packages/bilibili-cli/README.md)，Skill 文档在 [SKILL.md](../../skills/bilibili-cli/SKILL.md)。
 - **Git根仍在 `../..`**。本次只集中项目文档，不移动 `.git`、源码或其他项目，不创建嵌套仓库。根目录 npm 包装入口保留。
 - `../../bilibili-api-ts/` 与 `../../bilibili-api-python/` 是独立兄弟仓库；promo、acceptance、artifacts等包含其他或历史工作，不擅自清理、提交。
 - 本次将根 AGENTS.md、bridge实施路线图.md 移到这里，避免B站项目规则作用于整个多项目工作区；原根README只更新入口链接和布局。
@@ -31,7 +22,7 @@ npm 清单已采用 `@yukariyukaro/bilibili-cli` 并适配 scoped 安装测试�
 
 当前产品版本 **1.1.0 Unreleased**，仍未提交推送或发布；本摘要不重新联网检查远端。上轮核对的Git HEAD为49c530e，工作树有大量尚未提交的迁移变更及其他用户文件。后续不能直接git add全部。
 
-- 唯一产品运行时在 [src](src/)，全量严格TypeScript `.mts`；NodeNext编译到忽略的dist，不手改生成物。使用Commander，无DSH/MCP/宿主依赖。
+- 唯一产品运行时在 [src](../../packages/bilibili-cli/src/)，全量严格TypeScript `.mts`；NodeNext编译到忽略的dist，不手改生成物。使用Commander，无DSH/MCP/宿主依赖。
 - 入口为dist/cli/bili.mjs，保留 [cli/bili.mjs](cli/bili.mjs) 薄兼容启动器；旧JS业务lib和独立bridge demo已删除。
 - 共27条命令：原23条 + bridge run/status/stop + skills cleanup。参数、help、schema、JSONL同源；原23精确快照及schemaVersion1保留。
 - bridge run是独立长期事件流，不放入普通JSONL请求队列；JSONL返回STREAM_ONLY后继续后续行。status/stop为有限请求。token仅环境变量。
@@ -41,7 +32,7 @@ npm 清单已采用 `@yukariyukaro/bilibili-cli` 并适配 scoped 安装测试�
 
 ## 4. 旧Skill清理：保守、不静默删除
 
-实现和契约在 [skill-cleanup.mts](src/lib/skill-cleanup.mts)、[历史快照清单](src/lib/legacy-skills.mts)，使用步骤见 [升级与回滚](references/skill-upgrade.md)。
+实现和契约在 [skill-cleanup.mts](../../packages/bilibili-cli/src/lib/skill-cleanup.mts)、[历史快照清单](../../packages/bilibili-cli/src/lib/legacy-skills.mts)，使用步骤见 [升级与回滚](../../skills/bilibili-cli/references/skill-upgrade.md)。
 
 ```bash
 bilibili skills cleanup --path "旧目录绝对路径" --json
@@ -57,7 +48,7 @@ bilibili skills cleanup --path "旧目录绝对路径" --confirm --json
 
 ## 5. 已有验收证据（迁移完成时，上轮执行）
 
-详见 [测试台账](test/bridge/BASELINE.md)；最终临时证据目录：`C:/Users/J/AppData/Local/Temp/bilibili-cli-e2e-wm81Zo`（临时目录不保证长期保留）。
+详见 [测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md)；最终临时证据目录：`C:/Users/J/AppData/Local/Temp/bilibili-cli-e2e-wm81Zo`（临时目录不保证长期保留）。
 
 | 项目 | 实际结果 |
 | --- | --- |
@@ -78,7 +69,7 @@ bilibili skills cleanup --path "旧目录绝对路径" --confirm --json
 
 旧全局 Skill 已经用户授权通过官方 remove 清理，保留代码/文档备份；新版仅在仓库外新项目 scope 验证，**未替换全局 Skill，也未发布远端**。清理后 npm test exit 0（13 顶层组、bridge 失败 0），新证据根为临时 proTde 目录。
 
-用户另行授权使用当前 CLI 保存的账号 A，账号 B 扫码登录；CLI 只读核验两账号不同且双向互关。真实 readonly 套件为 **18 pass / 1 fail / 3 skip，exit 1**：min_seqno 不等于消息最小序号；两条 msg_key 超安全整数。保留红灯、没有修改断言。补充诊断中 writesEnabled=false 且 audit 未变。首轮真实 bridge 已 ready，但 5 分钟内未观察到指定人工消息后自动停止。随后按明确授权改用 B→A CLI 私信，但第一次脚本在 `dm send` 后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同消息；两次均有审计记录，B 写权限已恢复 false，未删除消息。bridge 探针任务请求的 Windows 工作目录当时不存在，DSH 包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码未运行，不是产品 bridge 或系统 PowerShell 缺失证据。真实入站转发、回复拒绝及重启去重尚未验证。详情见 [最新测试台账](test/bridge/BASELINE.md) 首节。
+用户另行授权使用当前 CLI 保存的账号 A，账号 B 扫码登录；CLI 只读核验两账号不同且双向互关。真实 readonly 套件为 **18 pass / 1 fail / 3 skip，exit 1**：min_seqno 不等于消息最小序号；两条 msg_key 超安全整数。保留红灯、没有修改断言。补充诊断中 writesEnabled=false 且 audit 未变。首轮真实 bridge 已 ready，但 5 分钟内未观察到指定人工消息后自动停止。随后按明确授权改用 B→A CLI 私信，但第一次脚本在 `dm send` 后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同消息；两次均有审计记录，B 写权限已恢复 false，未删除消息。bridge 探针任务请求的 Windows 工作目录当时不存在，DSH 包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码未运行，不是产品 bridge 或系统 PowerShell 缺失证据。真实入站转发、回复拒绝及重启去重尚未验证。详情见 [最新测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md) 首节。
 
 ## 6. 常用命令（本目录）
 
@@ -88,7 +79,7 @@ npm test
 npm run compile
 npm run build
 npm pack
-node test/bridge/docker/run.mjs --check
+node packages/bilibili-cli/test/bridge/docker/run.mjs --check
 ```
 
 默认build输出是Git根目录release/bilibili-cli，目标须为空；不要为重建而擅自删除已有发布目录。源码pack会prepack编译；预编译安装无需TS。cleanup完整历史测试setup需git及固定历史commit，产品运行不需要git。

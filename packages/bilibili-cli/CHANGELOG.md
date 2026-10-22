@@ -2,6 +2,16 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
+## Unreleased
+
+### 测试
+
+- 新增 test/release/：真实从 npm registry 下载发布包、从 GitHub 下载固定 commit 的 Skill 归档，校验
+  shasum/integrity 与逐文件 sha256 后安装，再验证 doctor/schema/skills 契约，并可运行既有 bridge 离线套件。
+  支持宿主机（--native，默认）、容器（--docker，fetch 阶段联网、运行阶段 --network none）与 --check 静态校验；
+  Docker 不可用报 unavailable，受限环境无法起子进程报 environment-blocked，都不算通过。
+- 新增包内脚本 test:release、test:release:check、test:release:docker；不改变已发布命令与输出。
+
 ## 1.1.2 — 2026-10-22
 
 仅文档修正，运行时代码与 1.1.0/1.1.1 相同（同一 `dist/`，命令、参数、输出与 `schemaVersion:1` 不变）。

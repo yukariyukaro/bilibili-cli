@@ -3,10 +3,10 @@
  * Optional Docker E2E for bilibili-cli TS × the real installed CLI.
  *
  * Modes:
- *   node skills/bilibili-cli/test/bridge/docker/run.mjs --check
+ *   node packages/bilibili-cli/test/bridge/docker/run.mjs --check
  *       Build a temporary, curated context and run real static checks.
  *       Does not use the Docker daemon and does not execute product tests.
- *   node skills/bilibili-cli/test/bridge/docker/run.mjs
+ *   node packages/bilibili-cli/test/bridge/docker/run.mjs
  *       Probe the Docker daemon, build the image, run the same bridge tests
  *       (offline.mjs build) in a --network none container.
  *       Docker unavailable => explicit status=unavailable and exit 2.
@@ -34,7 +34,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-// HERE = <repo>/skills/bilibili-cli/test/bridge/docker
+// HERE = <repo>/packages/bilibili-cli/test/bridge/docker
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..', '..')
 const CLI_ROOT = resolve(HERE, '..', '..', '..')
 const TEST_BRIDGE_ROOT = resolve(HERE, '..')
@@ -72,7 +72,7 @@ const SECRET_PATTERNS = [
 ]
 
 const USAGE = `用法：
-  node skills/bilibili-cli/test/bridge/docker/run.mjs [--check] [选项]
+  node packages/bilibili-cli/test/bridge/docker/run.mjs [--check] [选项]
 
 模式：
   --check             只准备临时 context 并做真实静态校验；不调用 Docker daemon
@@ -342,10 +342,10 @@ function validateDockerfile(context) {
 
 function validateDockerignore(context) {
   const text = readFileSync(join(context.root, '.dockerignore'), 'utf8').toLowerCase()
-  for (const pattern of ['**/node_modules', '**/.git', '**/.env', '**/.npmrc', '**/bili_credential.json', '**/*.pem', '**/audit.jsonl', 'skills/bilibili-cli/test/bridge/.artifacts']) {
+  for (const pattern of ['**/node_modules', '**/.git', '**/.env', '**/.npmrc', '**/bili_credential.json', '**/*.pem', '**/audit.jsonl', 'packages/bilibili-cli/test/bridge/.artifacts']) {
     assert.ok(text.includes(pattern), '.dockerignore 缺少：' + pattern)
   }
-  assert.ok(!text.includes('skills/bilibili-cli/test/bridge\n'), '.dockerignore 不能排除整个 bridge 测试目录')
+  assert.ok(!text.includes('packages/bilibili-cli/test/bridge\n'), '.dockerignore 不能排除整个 bridge 测试目录')
   return true
 }
 
@@ -463,9 +463,9 @@ function runStaticChecks(context) {
     assert.deepEqual(forbidden, [], 'context 出现禁止文件：' + forbidden.map((file) => file.rel).join(', '))
     return { forbidden: 0 }
   })
-  const regressions = context.inputs.filter((file) => file.rel.startsWith('skills/bilibili-cli/test/bridge/regressions/'))
-  const e2e = context.inputs.filter((file) => file.rel.startsWith('skills/bilibili-cli/test/bridge/e2e/'))
-  const scripts = context.inputs.filter((file) => file.rel.startsWith('skills/bilibili-cli/scripts/'))
+  const regressions = context.inputs.filter((file) => file.rel.startsWith('packages/bilibili-cli/test/bridge/regressions/'))
+  const e2e = context.inputs.filter((file) => file.rel.startsWith('packages/bilibili-cli/test/bridge/e2e/'))
+  const scripts = context.inputs.filter((file) => file.rel.startsWith('packages/bilibili-cli/scripts/'))
   assert.ok(regressions.some((file) => file.rel.endsWith('/run.mjs')), 'context 必须包含 test/bridge/regressions/run.mjs')
   assert.ok(e2e.some((file) => file.rel.endsWith('/run.mjs')), 'context 必须包含 test/bridge/e2e/run.mjs')
   assert.ok(scripts.some((file) => file.rel.endsWith('/compile.mjs')) && scripts.some((file) => file.rel.endsWith('/build.mjs')) && scripts.some((file) => file.rel.endsWith('/closure.mjs')), 'context 必须包含 compile/build/closure')
@@ -594,7 +594,7 @@ async function main() {
         },
         checks,
         suite: {
-          entry: 'skills/bilibili-cli/test/bridge/docker/container/entry.mjs',
+          entry: 'packages/bilibili-cli/test/bridge/docker/container/entry.mjs',
           variants: ['build'],
           reused: ['offline.mjs', 'backend-driver.mjs', 'protocol-driver.mjs', 'lifecycle.mjs', 'e2e/run.mjs', 'regressions/run.mjs'],
           note: '--check 只做静态校验；容器内只运行同一套 offline.mjs build（不再重复 source 安装），regressions 红灯会保留为非零，而不是基础设施失败。',
@@ -632,7 +632,7 @@ async function main() {
       docker: { probed: true, ...docker },
       reason: docker.reason,
       message: 'Docker daemon 不可达；未构建镜像、未运行容器、未执行测试。这不是通过。',
-      next: '先运行 node skills/bilibili-cli/test/bridge/docker/run.mjs --check 做无需 daemon 的静态校验；修复 Docker 环境后再运行本命令。',
+      next: '先运行 node packages/bilibili-cli/test/bridge/docker/run.mjs --check 做无需 daemon 的静态校验；修复 Docker 环境后再运行本命令。',
       evidenceBoundary: 'Docker 不可用；没有容器证据。未启动 Docker daemon、未访问 B 站、未读取凭证。',
     }, EXIT.UNAVAILABLE)
     return

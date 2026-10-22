@@ -2,35 +2,19 @@
 
 独立的 `bilibili` 1.x 命令行工具：B 站搜索、视频信息与字幕、评论、用户与通知、扫码登录、评论与私信写入，以及 `bridge` 私信监听。运行时位于 `src/`（严格 TypeScript `.mts`），编译到 `dist/`（JavaScript ESM）；发布包已经预编译，**使用者不需要 TypeScript 工具链**。需要 Node.js 22+。B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供，不依赖插件宿主，也不启动 MCP 或 Python 后端。
 
-1.1.0 相对 1.0.0 为兼容新增，保留原有 23 条命令；只有 `bilibili` 分组命令属于 1.x 公开契约，旧的平铺命令和别名不属于。本目录是该 CLI 与 bridge 的唯一源码，Git 根在 `../../`。
+1.1.2 相对 1.0.0 为兼容新增，保留原有 23 条命令；只有 `bilibili` 分组命令属于 1.x 公开契约，旧的平铺命令和别名不属于。本目录是 CLI 唯一源码，配套 Skill 文档位于仓库 `skills/bilibili-cli/`。
 
-## 使用者：免安装 npx（推荐）
+## 使用者：安装与运行
 
-官方 npm 包 `@yukariyukaro/bilibili-cli` 自带编译产物。默认按精确版本临时运行，不需要 clone 仓库、执行编译或全局安装：
-
-```bash
-# 国内默认使用 npmmirror 时，API 依赖的 tarball 可能尚未同步，显式指定官方源
-npx --registry https://registry.npmjs.org --package @yukariyukaro/bilibili-cli@1 bilibili --help
-npx --package @yukariyukaro/bilibili-cli@1 bilibili doctor --json
-npx --package @yukariyukaro/bilibili-cli@1 bilibili auth status --json
-npx --package @yukariyukaro/bilibili-cli@1 bilibili video search --keyword "AI Agent" --num 10 --json
-```
-
-`npx --package <包> bilibili ...` 会先解析该包，再执行包内的 `bilibili` 命令；下文示例省略这段前缀，实际调用时在 `bilibili` 前补上即可。
-
-npm 包名是 `@yukariyukaro/bilibili-cli`，Skill 名仍为 `bilibili-cli`，命令名仍为 `bilibili`。无 scope 的 `bilibili-cli` 是其他维护者的项目，不要安装它作为本工具。版本可用性以公共 registry 为准；解析失败时核对版本、registry 与网络，全局安装同样需要该版本已经发布。
-
-## 使用者：可选全局安装
-
-希望固定安装、反复调用时：
+运行前先检查 `bilibili --version`。命令已存在时直接使用，并运行 `bilibili doctor --json` 核对版本与依赖，不要重复安装。若命令不可用，告知用户需要全局安装官方 CLI，并取得同意后执行：
 
 ```bash
-npm install -g @yukariyukaro/bilibili-cli
+npm install -g @yukariyukaro/bilibili-cli@^1
 bilibili --version
 bilibili doctor --json
 ```
 
-之后直接使用 `bilibili`。升级时重新执行安装并复核 `bilibili --version` 与 `doctor --json` 中的 API 包版本；不要用来源不明的同名包或重命名后的包替代。
+之后直接使用 PATH 上的 `bilibili`。不同意全局安装或安装失败时，不要自动改用 npx；说明 CLI 依赖尚未满足。只使用官方包名 `@yukariyukaro/bilibili-cli`，不安装无 scope 的同名包。Skill 与 CLI 分开升级；升级 CLI 前先取得用户同意，升级后复核版本与 API 包依赖。
 
 ## 命令一览
 
@@ -45,7 +29,7 @@ bilibili doctor --json
 | 技能 | `skills list`、`skills read`、`skills cleanup` |
 | 监听 | `bridge run`、`bridge status`、`bridge stop` |
 
-参数、默认值、输出信封、退出码与 JSONL 规则见 [CLI 契约](references/cli-contract.md)。
+参数、默认值、输出信封、退出码与 JSONL 规则见 [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)。
 
 ## 登录、阅读与写入
 
@@ -87,11 +71,11 @@ bilibili config set --key writesEnabled --value true --json
 
 3. **历史副本清理是可选项**，不是升级必经步骤，也不会自动删除或自动执行：`bilibili skills cleanup --path "旧目录绝对路径" --json` 默认零副作用预览；用户明确确认本次路径后才加 `--confirm`，仅 rename 到同级可回滚备份，不永久删除。含自定义内容、凭证、依赖、链接、canonical 或 skill lock 时拒绝。
 
-详见 [Skill 安装与升级](references/skill-upgrade.md)；升级与回滚边界见该页「验收边界」。
+详见 [Skill 安装与升级](../../skills/bilibili-cli/references/skill-upgrade.md)；升级与回滚边界见该页「验收边界」。
 
 ## 维护者：源码构建、验证与发布
 
-在本目录执行（需要 Node.js 22+）：
+在 `packages/bilibili-cli/` 执行（需要 Node.js 22+）：
 
 ```bash
 npm ci                  # 构建需要 devDependencies（TypeScript），不要使用 --omit=dev
@@ -119,7 +103,7 @@ npm publish "<生成的 tarball 绝对路径>" --access public --registry=https:
 
 ## 技能交付
 
-`npm run build` 生成目录中的 `skill/` 只有 `SKILL.md` 与 `references/`，不含运行时、依赖或 CLI 副本；技能通过 npx 或全局安装的 `bilibili` 工作。`bilibili skills list --json` 与 `bilibili skills read --json` 可发现随包技能。发布包 `files` 白名单由 `scripts/closure.mjs` 固定，不把源码、测试或工具链打进包；包内仍保留 `cli/bili.mjs` 薄启动器（委托 `dist/cli/bili.mjs`），但公开入口只有 `bilibili`。
+`npm run build` 生成目录中的 `skill/` 只有 `SKILL.md` 与 `references/`，不含运行时、依赖或 CLI 副本；技能依赖全局安装并可从 PATH 调用的 `bilibili` 命令。`bilibili skills list --json` 与 `bilibili skills read --json` 可发现随包技能。发布包 `files` 白名单由 `scripts/closure.mjs` 固定，不把源码、测试或工具链打进包；包内仍保留 `cli/bili.mjs` 薄启动器（委托 `dist/cli/bili.mjs`），但公开入口只有 `bilibili`。
 
 ## Bridge
 
@@ -134,13 +118,13 @@ bilibili bridge status --json
 bilibili bridge stop --json
 ```
 
-`run` 是长期前台事件流，需要 `CC_CONNECT_BRIDGE_TOKEN` 与 owner UID；`status/stop` 是有限请求，不启动监听。长期 `run` 不能放进 JSONL 队列；`status/stop` 可以。当前复用外部 cc-connect，不打包它的 Go 引擎；AI 回复没有逐次人工确认入口，仍默认拒绝发送。bridge 依赖 PATH 上可执行的 `bilibili`，仅用 npx 临时运行且未全局安装时建议先全局安装。详见 [Bridge 监听](references/bridge.md)。
+`run` 是长期前台事件流，需要 `CC_CONNECT_BRIDGE_TOKEN` 与 owner UID；`status/stop` 是有限请求，不启动监听。长期 `run` 不能放进 JSONL 队列；`status/stop` 可以。当前复用外部 cc-connect，不打包它的 Go 引擎；AI 回复没有逐次人工确认入口，仍默认拒绝发送。bridge 需要全局安装且可从 PATH 调用的 `bilibili` 命令。详见 [Bridge 监听](../../skills/bilibili-cli/references/bridge.md)。
 
 ## 文档入口
 
-- [AGENTS.md](AGENTS.md)：本目录适用的规则与提交纪律。
-- [CONTEXT.md](CONTEXT.md)：实现、验收证据、限制与交接。
-- [实施路线图](bridge实施路线图.md)：阶段计划与验收边界；计划不代表已经实现。升级 Skill 后 CLI 版本同步、`skills status/link` 等交付体验仍属阶段 2.5。
+- [维护规则](../../docs/bilibili-cli/AGENTS.md)：适用于本产品的开发与提交纪律。
+- [维护上下文](../../docs/bilibili-cli/CONTEXT.md)：实现、验收证据、限制与交接。
+- [实施路线图](../../docs/bilibili-cli/bridge实施路线图.md)：阶段计划与验收边界；计划不代表已经实现。升级 Skill 后 CLI 版本同步、`skills status/link` 等交付体验仍属阶段 2.5。
 - [更新日志](CHANGELOG.md) 与 [测试台账](test/bridge/BASELINE.md)。
 
 ## 来源与许可

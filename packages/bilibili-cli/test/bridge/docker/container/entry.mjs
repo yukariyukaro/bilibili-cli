@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs'
 import { networkInterfaces, tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 
-const CLI_ROOT = resolve(process.env.BILIBILI_E2E_CLI_ROOT || '/workspace/skills/bilibili-cli')
+const CLI_ROOT = resolve(process.env.BILIBILI_E2E_CLI_ROOT || '/workspace/packages/bilibili-cli')
 const TEST_BRIDGE_ROOT = join(CLI_ROOT, 'test', 'bridge')
 const PREFIX = resolve(process.env.BILIBILI_E2E_INSTALLED_PREFIX || '/opt/bilibili')
 const MANIFEST = process.env.BILIBILI_E2E_MANIFEST || '/workspace/context-manifest.json'
