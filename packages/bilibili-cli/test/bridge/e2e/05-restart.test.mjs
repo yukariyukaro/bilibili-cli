@@ -63,7 +63,7 @@ test('离线进程生命周期：真实安装 CLI、本地控制面注册就绪�
   t.diagnostic('生命周期日志：' + proc.logFile)
 
   await proc.stop()
-  assert.notEqual(proc.child.exitCode, null, '停止后进程应退出')
+  assert.ok(proc.child.exitCode !== null || proc.child.signalCode !== null, '停止后进程应退出（退出码或终止信号至少有一个）')
 })
 
 test('离线进程重启：同一本地控制面重新注册，普通重启不产生写状态（不访问 B 站）', async (t) => {
