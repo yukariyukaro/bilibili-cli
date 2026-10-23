@@ -370,6 +370,7 @@ export class BridgeClient {
     content,
     session_key,
     reply_ctx,
+    source,
   }: BridgeMessageInput): void {
     const eventId = id ?? msg_id
     const receiver = uid ?? user_id
@@ -394,6 +395,7 @@ export class BridgeClient {
         typeof reply_ctx === 'string'
           ? reply_ctx
           : JSON.stringify(reply_ctx ?? { kind: 'dm', uid: receiverId }),
+      ...(source ? { source } : {}),
     })
   }
 

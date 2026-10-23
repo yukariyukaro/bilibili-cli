@@ -112,7 +112,7 @@ bilibili bridge status --json
 bilibili bridge stop --json
 ```
 
-`run` 是长期前台事件流，需要 `CC_CONNECT_BRIDGE_TOKEN` 与 owner UID；`status/stop` 是有限请求，不启动监听。长期 `run` 不能放进 JSONL 队列；`status/stop` 可以。当前复用外部 cc-connect，不打包它的 Go 引擎；AI 回复没有逐次人工确认入口，仍默认拒绝发送。bridge 默认用当前 node + 包内 `dist/cli/bili.mjs` 自举子进程，不要求 PATH 上有 `bilibili` 命令。详见 [Bridge 监听](../../skills/bilibili-cli/references/bridge.md)。
+`run` 是长期前台事件流，需要 `CC_CONNECT_BRIDGE_TOKEN` 与 owner UID；`status/stop` 是有限请求，不启动监听。长期 `run` 不能放进 JSONL 队列；`status/stop` 可以。当前复用外部 cc-connect，不打包它的 Go 引擎；AI 回复策略可配置（`BILIBILI_BRIDGE_REPLY_POLICY`，默认 `owner`：仅白名单主人直回），真实发送仍受互关、收件人锁定、`writesEnabled` 与 dry-run 约束。bridge 默认用当前 node + 包内 `dist/cli/bili.mjs` 自举子进程，不要求 PATH 上有 `bilibili` 命令。详见 [Bridge 监听](../../skills/bilibili-cli/references/bridge.md)。
 
 ## 文档入口
 

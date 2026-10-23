@@ -22,8 +22,36 @@ export { parseJsonLossless }
 export { normalizeState }
 
 export const MAX_TEXT = 300
+export const DEFAULT_REPLY_MAX = 300
 export const STATE_VERSION = 1
 export const MAX_PENDING = 1000
+
+/**
+ * 转发给 agent 的来源头，对齐 cc-connect 的 injectSender 做法（"[…]\n正文"）：
+ * 只说明来源与不可信，不生成人设、回复规则或授权。角色/性格由用户在 cc-connect 的
+ * system_prompt / append_system_prompt 里定制，bridge 不覆盖。
+ * 来源头只加在发送帧上，本地 pending 与去重仍保存原文。
+ */
+export const SOURCE_LABELS = {
+  dm: '私信',
+  comment: '评论',
+  at: '@提及',
+} as const
+
+export type MessageSurface = keyof typeof SOURCE_LABELS
+
+export function sourceHeader(surface: MessageSurface, sender: string): string {
+  const name = sanitizeSender(sender)
+  return '[B站网友' + SOURCE_LABELS[surface] + (name ? ' sender=' + name : '') + ' untrusted=true]\n'
+}
+
+function sanitizeSender(value: string): string {
+  return String(value ?? '')
+    .replace(/"/g, "'")
+    .replace(/[\r\n]+/g, ' ')
+    .trim()
+    .slice(0, 40)
+}
 
 const MIN_POLL_MS = 6000
 const MAX_SEEN = 2000
@@ -126,6 +154,23 @@ function truncateText(text: string): string {
   // 不把 UTF-16 代理对截成半个字符。
   if (last >= 0xd800 && last <= 0xdbff) end -= 1
   return text.slice(0, end)
+}
+
+// thinking 与最终文本应由 adapter 在协议层分开（cc-connect ACP、codex agent_reasoning、
+// claude thinking block）。bridge 不改写正文；若仍检测到带标签的思考块，说明 adapter 违约，
+// fail closed 拒绝发送，并留下明确告警。
+const THINKING_TAG = /<(thinking|reasoning|scratchpad|analysis)>[\s\S]*?<\/\1>/i
+
+function containsThinking(text: string): boolean {
+  return THINKING_TAG.test(text)
+}
+
+function truncateReply(text: string, max: number): { text: string; truncated: boolean } {
+  if (text.length <= max) return { text, truncated: false }
+  let end = max - 1
+  const last = text.charCodeAt(end - 1)
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1
+  return { text: text.slice(0, end) + '…', truncated: true }
 }
 
 interface DecodedText {
@@ -292,6 +337,7 @@ export interface BilibiliBridgeAdapterOptions {
   state?: unknown
   saveState?: SaveState
   confirmSend?: ConfirmSend
+  replyMax?: number
   logger?: BridgeLogger
 }
 
@@ -309,6 +355,7 @@ export class BilibiliBridgeAdapter {
   readonly pollMs: number
   readonly logger: BridgeLogger
   readonly confirmSend: ConfirmSend
+  readonly replyMax: number
   saveState: SaveState
   state: BridgeState
   onBaselineReady: (() => void) | null = null
@@ -338,6 +385,7 @@ export class BilibiliBridgeAdapter {
     state = {},
     saveState = async () => undefined,
     confirmSend = async () => false,
+    replyMax = DEFAULT_REPLY_MAX,
     logger = console,
   }: BilibiliBridgeAdapterOptions) {
     const owners = (Array.isArray(ownerUids) ? ownerUids : String(ownerUids ?? '').split(','))
@@ -366,6 +414,10 @@ export class BilibiliBridgeAdapter {
     this.pollMs = pollMs
     this.logger = logger
     this.confirmSend = typeof confirmSend === 'function' ? confirmSend : async () => false
+    // CLI 契约里 dm send 正文上限就是 MAX_TEXT（300）；超过它会在 CLI 校验层被拒。
+    this.replyMax = Number.isSafeInteger(replyMax) && replyMax >= 1
+      ? Math.min(replyMax, MAX_TEXT)
+      : DEFAULT_REPLY_MAX
     this.saveState = typeof saveState === 'function' ? saveState : async () => undefined
 
     this.state = normalizeState(state)
@@ -659,8 +711,10 @@ export class BilibiliBridgeAdapter {
         continue
       }
       if (!this.bridgeReady()) break
+      const surface = 'dm' as const
       try {
         // 同时提供归一化字段和 bridge 帧字段：BridgeClient 会补齐/校验。
+        // content 前置来源头，source 供支持结构化元数据的 adapter 使用。
         const result = await this.bridge.sendMessage({
           type: 'message',
           id: entry.id,
@@ -670,8 +724,9 @@ export class BilibiliBridgeAdapter {
           name: entry.name,
           user_name: entry.name || entry.uid,
           session_key: this.platform + ':dm:' + entry.uid,
-          content: entry.content,
+          content: sourceHeader(surface, entry.name || entry.uid) + entry.content,
           reply_ctx: JSON.stringify({ kind: 'dm', uid: entry.uid }),
+          source: { platform: this.platform, surface, untrusted: true },
         })
         if (result === false || (isPlainObject(result) && (result.ok === false || result.success === false))) {
           throw new Error(errorText(isPlainObject(result) ? result.error : undefined, 'bridge send rejected'))
@@ -789,14 +844,22 @@ export class BilibiliBridgeAdapter {
 
   async handleReply(reply: unknown): Promise<ReplyResult> {
     if (!isPlainObject(reply)) return { ok: false, reason: 'invalid_reply' }
-    const content = typeof reply.content === 'string' ? reply.content : ''
-    if (!content.trim()) {
+    const raw = typeof reply.content === 'string' ? reply.content : ''
+    if (!raw.trim()) {
       this.logger.error?.('[bilibili-bridge] reply rejected: empty content')
       return { ok: false, reason: 'empty_content' }
     }
-    if (content.length > MAX_TEXT) {
-      this.logger.error?.('[bilibili-bridge] reply rejected: content exceeds ' + String(MAX_TEXT) + ' characters')
-      return { ok: false, reason: 'content_too_long' }
+    if (containsThinking(raw)) {
+      this.logger.error?.(
+        '[bilibili-bridge] reply rejected: thinking content in reply; adapter must separate reasoning from final text',
+      )
+      return { ok: false, reason: 'thinking_content' }
+    }
+    const { text: content, truncated } = truncateReply(raw, this.replyMax)
+    if (truncated) {
+      this.logger.log?.(
+        '[bilibili-bridge] reply truncated: ' + String(raw.length) + ' -> ' + String(content.length) + ' characters',
+      )
     }
 
     let context: unknown
