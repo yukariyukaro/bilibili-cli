@@ -1,6 +1,6 @@
 import { createInterface, type Interface } from 'node:readline'
 
-import { BilibiliBridgeAdapter, DEFAULT_REPLY_MAX } from './adapter.mjs'
+import { BilibiliBridgeAdapter, DEFAULT_REPLY_MAX, MAX_TEXT } from './adapter.mjs'
 import { BilibiliCliBackend } from './backend.mjs'
 import { BridgeClient } from './bridge.mjs'
 import { checkStopRequest, clearOwnStopRequest } from './control-plane.mjs'
@@ -334,10 +334,15 @@ export class BridgeRuntime {
     if (!['off', 'owner', 'draft'].includes(replyPolicy)) {
       throw configError('BILIBILI_BRIDGE_REPLY_POLICY 只接受 off / owner / draft')
     }
-    const replyMaxRaw = Number(process.env.BILIBILI_BRIDGE_REPLY_MAX ?? DEFAULT_REPLY_MAX)
-    const replyMax = Number.isSafeInteger(replyMaxRaw) && replyMaxRaw >= 1 && replyMaxRaw <= 2000
-      ? replyMaxRaw
-      : DEFAULT_REPLY_MAX
+    const replyMaxRaw = process.env.BILIBILI_BRIDGE_REPLY_MAX
+    let replyMax = DEFAULT_REPLY_MAX
+    if (replyMaxRaw !== undefined) {
+      const parsedReplyMax = Number(replyMaxRaw)
+      if (!Number.isSafeInteger(parsedReplyMax) || parsedReplyMax < 1 || parsedReplyMax > MAX_TEXT) {
+        throw configError('BILIBILI_BRIDGE_REPLY_MAX 必须是 1–' + String(MAX_TEXT) + ' 的整数')
+      }
+      replyMax = parsedReplyMax
+    }
 
     this.gate = new PollGate()
     this.backend = new BilibiliCliBackend({

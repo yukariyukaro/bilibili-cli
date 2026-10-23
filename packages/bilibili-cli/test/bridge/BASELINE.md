@@ -14,7 +14,7 @@
 - 只读源码复核：CLI dmRead 透传 API 结果；bridge 取 messages 并用消息自身序号排序/建游标，不读顶层 min_seqno/max_seqno/has_more。当前 min_seqno 等于页内最小值的测试假设缺乏契约证据，应保留失败并进一步验证服务端边界语义；本次样本不能证明 bridge 丢消息，也不能证明超过 30 条的分页完整性。
 - 精度链路风险：API 库先用普通 JSON.parse，bridge 的 lossless reviver 只能保全 CLI 输出文本，不能恢复在 API 层已舍入的真值。真实 CLI 路径中超安全整数可能已转成字符串，primaryIdString 会采用该串，而 hasUnsafeIntegerId 仅检测不安全 number，因此未必触发复合键回退/警告。由此存在舍入后 ID 碰撞导致错误去重的风险；尚未复现真实碰撞，不能把理论风险写成已发生的丢信。需在原始解析层保真并新增真实安装链回归，不改当前断言求绿。
 - 首轮真实 bridge 探针完成注册与基线 ready，随后等待 5 分钟，未观察到指定人工测试消息（`manual_message_not_observed`，exit 1）。随后按用户明确授权改用 B→A CLI 私信验证；第一次脚本在 `dm send` 已执行后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同测试消息。两次操作均有审计记录，B 写权限已恢复为 false；未删除消息，未继续重试。bridge 探针另因请求的 Windows 工作目录当时不存在，DSH 作业包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码并未运行，因此这不是产品 bridge 或系统 PowerShell 缺失证据。真实 bridge 转发、回复拒绝与重启去重仍未验证。
-- 当前产品入口默认拒绝回复。本地 WS 即使接到真实私信，也仅证明 CLI/bridge 入站与协议封装，不证明真实 cc-connect、AI 处理或 B 站回复送达。
+- 当前产品入口的回复策略可配置（默认 `owner`：仅白名单主人直回；`off` 关闭）。本地 WS 即使接到真实私信，也仅证明 CLI/bridge 入站与协议封装，不证明真实 cc-connect、AI 处理或 B 站回复送达。
 
 ## 阶段二最终离线验收（2026-10-22，Asia/Shanghai）
 

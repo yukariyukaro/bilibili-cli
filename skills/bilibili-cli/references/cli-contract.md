@@ -96,7 +96,7 @@ node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "/绝对路径/旧�
 
 ## Bridge 子系统
 
-`bilibili bridge run` 以独立进程前台运行并输出生命周期 JSONL（registered/ready/error/stopped）；`status` 与 `stop` 返回普通版本化信封，可用于 JSONL。run 需要 `CC_CONNECT_BRIDGE_TOKEN` 与 `BILIBILI_OWNER_UID`，可选 `CC_CONNECT_BRIDGE_URL`；三种命令可用 `--state-path` 隔离实例。bridge 默认用当前 node 可执行文件 + 包内 `dist/cli/bili.mjs` 自举子进程，不再要求 PATH 上存在同名 `bilibili` 命令；安装形态变化不影响启动。当前仅外接 cc-connect 的私信文本通道，回复默认拒绝，无自动确认入口；任何写调用仍经过原有校验、互关、写开关及审计，未知状态不重发。完整前置条件、生命周期与限制见 [Bridge 监听](bridge.md)。
+`bilibili bridge run` 以独立进程前台运行并输出生命周期 JSONL（registered/ready/error/stopped）；`status` 与 `stop` 返回普通版本化信封，可用于 JSONL。run 需要 `CC_CONNECT_BRIDGE_TOKEN` 与 `BILIBILI_OWNER_UID`，可选 `CC_CONNECT_BRIDGE_URL`；三种命令可用 `--state-path` 隔离实例。bridge 默认用当前 node 可执行文件 + 包内 `dist/cli/bili.mjs` 自举子进程，不再要求 PATH 上存在同名 `bilibili` 命令；安装形态变化不影响启动。当前仅外接 cc-connect 的私信文本通道；回复策略由 `BILIBILI_BRIDGE_REPLY_POLICY` 控制（默认 `owner`：仅白名单主人直回，`off` 可关闭），真实发送仍经过原有校验、互关、收件人锁定、写开关及审计，未知状态不重发。完整前置条件、生命周期与限制见 [Bridge 监听](bridge.md)。
 
 ## 超时与错误
 

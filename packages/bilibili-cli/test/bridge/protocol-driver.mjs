@@ -776,6 +776,7 @@ async function runChildMain() {
       emit({ event: 'confirm', uid: String(uid), text, fixture: true })
       return env.PROTO_CONFIRM !== 'deny'
     } }),
+    ...(env.PROTO_REPLY_MAX ? { replyMax: Number(env.PROTO_REPLY_MAX) } : {}),
     logger: logger('adapter'),
   })
 
@@ -1453,7 +1454,7 @@ async function runDriver() {
       statePath,
       fixturePath,
       label: 'reply-truncate',
-      env: { PROTO_CONFIRM: 'allow' },
+      env: { PROTO_CONFIRM: 'allow', PROTO_REPLY_MAX: '200' },
     })
     try {
       await child.waitEvent((event) => event.event === 'registered', { timeout: 5000, description: 'truncate registration' })
@@ -1468,7 +1469,7 @@ async function runDriver() {
         description: 'truncated reply',
       })
       assert.equal(sent.uid, '42')
-      assert.equal(sent.text.length <= 300, true, '超长回复必须截断到上限')
+      assert.equal(sent.text.length <= 200, true, '超长回复必须截断到配置上限')
       assert.equal(sent.text.endsWith('…'), true, '截断必须带省略标记')
       assert.equal(sent.text.startsWith('长回复'), true, '截断不能改写正文开头')
     } finally {

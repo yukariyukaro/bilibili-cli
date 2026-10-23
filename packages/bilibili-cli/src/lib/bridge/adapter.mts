@@ -414,7 +414,10 @@ export class BilibiliBridgeAdapter {
     this.pollMs = pollMs
     this.logger = logger
     this.confirmSend = typeof confirmSend === 'function' ? confirmSend : async () => false
-    this.replyMax = Number.isSafeInteger(replyMax) && replyMax >= 1 && replyMax <= 2000 ? replyMax : DEFAULT_REPLY_MAX
+    // CLI 契约里 dm send 正文上限就是 MAX_TEXT（300）；超过它会在 CLI 校验层被拒。
+    this.replyMax = Number.isSafeInteger(replyMax) && replyMax >= 1
+      ? Math.min(replyMax, MAX_TEXT)
+      : DEFAULT_REPLY_MAX
     this.saveState = typeof saveState === 'function' ? saveState : async () => undefined
 
     this.state = normalizeState(state)

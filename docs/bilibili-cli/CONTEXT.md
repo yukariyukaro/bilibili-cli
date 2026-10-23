@@ -16,7 +16,7 @@
 - 先用真实安装产物E2E暴露缺陷，再最小修复；不通过skip、反向断言或放宽权限让测试假绿。
 - 复杂工作可并行分工，但文件写scope不重叠；Lead审最终差异并运行统一验收。
 - 防止vibe coding破坏可用性：公开兼容优先，semver合理，commit/push前更新 [CHANGELOG](CHANGELOG.md)，记录验证和未验证项；破坏性变更须理由、迁移与回滚。
-- 不擅自commit/push/tag/publish，不读取或迁移真实凭证，不调用真实B站写；AI回复仍默认拒绝。
+- 不擅自commit/push/tag/publish，不读取或迁移真实凭证，不调用真实B站写；AI回复默认仅对白名单主人自动回复（`BILIBILI_BRIDGE_REPLY_POLICY=owner`，可用 `off` 关闭），真实发送仍受写开关与 dry-run 约束。
 
 ## 3. 当前已完成：阶段1离线基线与阶段2迁移
 

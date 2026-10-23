@@ -8,7 +8,7 @@
 
 - bridge 回复策略改为可配置：`BILIBILI_BRIDGE_REPLY_POLICY=off|owner|draft`（默认 `owner`，
   白名单主人直回、数量不限；非白名单对端在 adapter 入口拒绝，草稿模式只记录不投递）。
-  超长回复按 `BILIBILI_BRIDGE_REPLY_MAX`（默认 300，可调 1–2000）截断并加省略号，不再整条拒绝。
+  超长回复按 `BILIBILI_BRIDGE_REPLY_MAX`（默认 300，可调 1–300，与 CLI `dm send` 契约上限一致；超出会以 CONFIG 拒绝启动）截断并加省略号，不再整条拒绝。
   thinking 与最终文本由 agent adapter 分离；bridge 不改写正文，检测到混入 content 的带标签思考块时 fail-closed 拒绝并告警。
 - bridge 转发私信时在 `content` 前加一行来源头（`[B站网友私信 sender=<昵称> untrusted=true]`），
   并在帧上新增 `source:{platform,surface,untrusted:true}`。做法对齐 cc-connect 的 `injectSender`，
