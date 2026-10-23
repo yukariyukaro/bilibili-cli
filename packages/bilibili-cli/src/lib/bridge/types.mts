@@ -27,6 +27,12 @@ export interface RegisterFrame {
   metadata: Metadata
 }
 
+export interface MessageSource {
+  platform: string
+  surface: 'dm' | 'comment' | 'at'
+  untrusted: true
+}
+
 export interface MessageFrame {
   type: 'message'
   msg_id: string
@@ -35,6 +41,7 @@ export interface MessageFrame {
   user_name: string
   content: string
   reply_ctx: string
+  source?: MessageSource
 }
 
 export interface PingFrame {
@@ -89,6 +96,7 @@ export interface BridgeMessageInput {
   content: string
   session_key?: string
   reply_ctx?: string | Record<string, unknown>
+  source?: MessageSource
 }
 
 export interface BridgeSender {

@@ -161,7 +161,7 @@ export async function casePendingAllowlistAndOrder(ctx) {
 
     assert.deepEqual(
       allowedFrames.map((frame) => frame.content),
-      ['allowed-6', 'allowed-7'],
+      ['[B站网友私信 sender=regression untrusted=true]\nallowed-6', '[B站网友私信 sender=regression untrusted=true]\nallowed-7'],
       '白名单 pending 必须按 seqno 正序转发；实际：' + JSON.stringify(allowedFrames.map((frame) => ({ user_id: frame.user_id, content: frame.content }))),
     )
     if (foreignFrames.length > 0) {
@@ -232,7 +232,11 @@ export async function casePendingSaturationDrain(ctx) {
       )
     }
     assert.equal(first.user_id, OWNER_UID)
-    assert.equal(first.content, 'pending-6', '饱和 pending drain 必须从最旧 seqno 开始（正序）；实际首条：' + first.content)
+    assert.equal(
+      first.content,
+      '[B站网友私信 sender=regression untrusted=true]\npending-6',
+      '饱和 pending drain 必须从最旧 seqno 开始（正序）；实际首条：' + first.content,
+    )
     assertNoCredential(stage.home)
     return {
       mode: 'drained',
