@@ -1,5 +1,5 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { createInterface, type Interface } from 'node:readline'
 
 import { BilibiliBridgeAdapter, DEFAULT_REPLY_MAX, MAX_TEXT } from './adapter.mjs'
@@ -365,13 +365,14 @@ export class BridgeRuntime {
         if (replyPolicy === 'off') return false
         if (replyPolicy === 'draft') {
           // 草稿只落本地文件供主人审阅，不投递到 B 站；状态目录已含消息正文，需同样保护。
-          const draftPath = join(dirname(config.statePath), 'drafts.jsonl')
+          // 文件名跟随 state 文件，避免同目录多实例共用一个草稿日志；新建文件强制 0600。
+          const draftPath = join(dirname(config.statePath), basename(config.statePath) + '.drafts.jsonl')
           try {
             mkdirSync(dirname(draftPath), { recursive: true })
             appendFileSync(
               draftPath,
               JSON.stringify({ at: new Date().toISOString(), uid: String(uid), text: String(text ?? '') }) + '\n',
-              'utf8',
+              { encoding: 'utf8', mode: 0o600 },
             )
             this.log('[bilibili-bridge] reply draft recorded (not sent) uid=' + String(uid) + ' path=' + draftPath)
           } catch (error) {
