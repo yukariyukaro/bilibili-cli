@@ -39,7 +39,7 @@ E2E 不是做完一次就结束：先建立基线，迁移后复验，重构每�
 - 最终回归（Lead，`npm run typecheck && npm test`）exit 0：13 个顶层组通过、bridge 失败 0；build bridge 9 pass/0 fail，source 8 pass/0 fail/1 skip；生命周期 18/18（root PID registered 后真实 Node），协议两路径 10/10，安装命令套件每路径 15 pass/7 skip/0 fail，原缺陷 2/2，cleanup 双路径各 15/15，非对象 credential 的 AUTH 哨兵通过。Docker `--check` exit 0（74 白名单/34 mjs），Docker daemon 实际未运行。typecheck 0，运行时源码已冻结。
 - 阶段 1 离线基线完成；真实账号只读/写 E2E 未执行，不宣称真实收发通过。两条历史红灯（pending 白名单/顺序、饱和排空）已修复并由 2/2 回归覆盖。
 - 清理边界：历史快照按 per-snapshot 返回版本（`57efd8d` = 0.1.5，`45cf9a4`/`49c530e` = 1.0.0）；仅处理 unmanaged pristine 真目录，`npm ci` 后含 node_modules 拒绝，canonical 或任意 ancestor lock 存在即拒（含空 lock，保守 false-negative）；`O_NOFOLLOW` 平台不跟随最终文件 link，Windows 用 `O_RDONLY` + 前后 `lstat/fstat` 的 inode/mode/nlink/size/mtime/ctime 复核，属非对抗恶意并发边界；纯文档 fixture 固定 LF（`.gitattributes`）。旧名 `bilibili-agent` 只有文字记录、无 hash，不自动清。官方 `npx skills remove` 是 managed 安装的主路径；literal npx 离线 wrapper 未验，直接安装 skills 1.7.4 的临时 local copy/remove 已验证。
-- 当前真实回复入口没有逐次确认交互，不能为了让往返测试通过而自动同意发送；写开关、互关限制和审计继续有效。
+- 回复策略默认 `owner`（仅白名单主人直回，`off` 可关闭），没有逐次确认交互；不能为了让往返测试通过而自动同意发送。写开关、互关限制、收件人锁定和审计继续有效。
 - 本地 Python/TS API 目录属于独立兄弟仓库，不复制进 CLI，也不纳入本仓库的迁移任务。
 - 阶段 3–5（分层重构、绑定与 agent、Web 控制台、宿主插件）未开始，不自动实现。远端仓库仍是旧提交 `49c530e`，1.1.0 未 commit/push；不能宣称远端 npx 新版可验证，也不能用本地 local copy 结果替代远端 npx 证据。
 
@@ -297,7 +297,7 @@ skills/bilibili-cli/
 - 核心不硬编码 Codex、Claude Code 或 cc-connect 的实现细节。
 - 每个账号同一时间仅一个同步执行者；重启不凭空丢弃已入队事件。
 - 超过单页的积压处理方向经真实接口验证，不仅依据参数名推断。
-- 只读、默认拒绝、白名单、逐次授权和未知状态不重发等约束保持不变。
+- 只读、白名单、策略化回复（默认 `owner` 仅主人）、逐次授权和未知状态不重发等约束保持不变。
 
 ## 九、阶段 4：可视化与 Skill 引导（未开始）
 

@@ -244,7 +244,7 @@ if (mode === 'write') {
     workdir,
     writesAttempted: 0,
     realBilibiliWrites: 0,
-    reason: '当前 bridge 没有逐次人工确认入口：main.mjs 不注入 confirmSend，adapter 默认拒绝。真实写不能由自动化入口代替用户确认，也不能自动打开 writesEnabled 或把 dry-run 改成 false。',
+    reason: 'main.mjs 注入的 confirmSend 在默认策略下只允许白名单主人，但自动化入口不打开 writesEnabled、也不把 dry-run 改成 false。真实写不能由自动化代替用户确认。',
     requiredManualFlow: [
       '人工确认准确收件人 UID 与最终正文',
       '人工显式开启 CLI writesEnabled 并仅执行一次 --confirm',

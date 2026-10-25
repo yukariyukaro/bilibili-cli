@@ -1,6 +1,8 @@
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { createInterface, type Interface } from 'node:readline'
 
-import { BilibiliBridgeAdapter } from './adapter.mjs'
+import { BilibiliBridgeAdapter, DEFAULT_REPLY_MAX, MAX_TEXT } from './adapter.mjs'
 import { BilibiliCliBackend } from './backend.mjs'
 import { BridgeClient } from './bridge.mjs'
 import { checkStopRequest, clearOwnStopRequest } from './control-plane.mjs'
@@ -330,6 +332,20 @@ export class BridgeRuntime {
     this.state = await store.load()
     this.instanceLock = await acquireInstanceLock(config.statePath, { logger: (message) => this.log(message) })
 
+    const replyPolicy = String(process.env.BILIBILI_BRIDGE_REPLY_POLICY ?? 'owner').toLowerCase()
+    if (!['off', 'owner', 'draft'].includes(replyPolicy)) {
+      throw configError('BILIBILI_BRIDGE_REPLY_POLICY 只接受 off / owner / draft')
+    }
+    const replyMaxRaw = process.env.BILIBILI_BRIDGE_REPLY_MAX
+    let replyMax = DEFAULT_REPLY_MAX
+    if (replyMaxRaw !== undefined) {
+      const parsedReplyMax = Number(replyMaxRaw)
+      if (!Number.isSafeInteger(parsedReplyMax) || parsedReplyMax < 1 || parsedReplyMax > MAX_TEXT) {
+        throw configError('BILIBILI_BRIDGE_REPLY_MAX 必须是 1–' + String(MAX_TEXT) + ' 的整数')
+      }
+      replyMax = parsedReplyMax
+    }
+
     this.gate = new PollGate()
     this.backend = new BilibiliCliBackend({
       env: process.env,
@@ -343,8 +359,30 @@ export class BridgeRuntime {
       pollMs: config.pollMs,
       state: this.state,
       saveState: (next) => this.saveAdapterState(next),
-      // 默认入口没有逐次人工确认交互：保持 confirm=false，绝不自动真发。
-      confirmSend: async () => false,
+      // 回复策略：off=一律不发；draft=只出草稿等主人审；owner=白名单主人直回（数量不限）。
+      // 非白名单对端在 adapter 入口即被拒绝；真实发送还受 CLI writesEnabled 与 dry-run 约束。
+      confirmSend: async ({ uid, text }) => {
+        if (replyPolicy === 'off') return false
+        if (replyPolicy === 'draft') {
+          // 草稿只落本地文件供主人审阅，不投递到 B 站；状态目录已含消息正文，需同样保护。
+          // 文件名跟随 state 文件，避免同目录多实例共用一个草稿日志；新建文件强制 0600。
+          const draftPath = join(dirname(config.statePath), basename(config.statePath) + '.drafts.jsonl')
+          try {
+            mkdirSync(dirname(draftPath), { recursive: true })
+            appendFileSync(
+              draftPath,
+              JSON.stringify({ at: new Date().toISOString(), uid: String(uid), text: String(text ?? '') }) + '\n',
+              { encoding: 'utf8', mode: 0o600 },
+            )
+            this.log('[bilibili-bridge] reply draft recorded (not sent) uid=' + String(uid) + ' path=' + draftPath)
+          } catch (error) {
+            this.log('[bilibili-bridge] reply draft record failed: ' + errorMessage(error))
+          }
+          return false
+        }
+        return config.ownerUids.includes(String(uid))
+      },
+      replyMax,
       logger: this.diagnostics,
     })
     this.adapter.onBaselineReady = () => {

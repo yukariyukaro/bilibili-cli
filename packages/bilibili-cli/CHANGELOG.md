@@ -2,6 +2,26 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
+## Unreleased
+
+### 破坏性变更
+
+- bridge 默认回复策略从“全拒绝”改为 `owner`：白名单主人会收到自动回复。真实发送仍需
+  `writesEnabled=true` 且 `BILIBILI_BRIDGE_DRY_RUN=false`；升级后如不希望自动回复，设
+  `BILIBILI_BRIDGE_REPLY_POLICY=off`。回滚：设置该变量为 `off`，或回退本版本，行为回到全拒绝（注意：直接删除变量会回到默认 `owner`，不是全拒绝）。
+
+### 新增与变更
+
+- bridge 回复策略改为可配置：`BILIBILI_BRIDGE_REPLY_POLICY=off|owner|draft`（默认 `owner`，
+  白名单主人直回、数量不限；非白名单对端在 adapter 入口拒绝；`draft` 写入与 state 文件同名的
+  `<state 文件名>.drafts.jsonl`（0600）供审阅、不投递）。
+  超长回复按 `BILIBILI_BRIDGE_REPLY_MAX`（默认 300，可调 1–300，与 CLI `dm send` 契约上限一致；超出会以 CONFIG 拒绝启动）截断并加省略号，不再整条拒绝。
+  thinking 与最终文本由 agent adapter 分离；bridge 不改写正文，检测到混入 content 的带标签思考块时 fail-closed 拒绝并告警。
+- bridge 转发私信时在 `content` 前加一行来源头（`[B站网友私信 sender=<昵称> untrusted=true]`），
+  并在帧上新增 `source:{platform,surface,untrusted:true}`。做法对齐 cc-connect 的 `injectSender`，
+  只说明来源与不可信，不写人设或回复规则；本地 pending 与去重仍保存原文。自定义人物仍由
+  cc-connect 的 `system_prompt`/`append_system_prompt` 负责。
+
 ## 2.0.0 — 2026-10-22
 
 ### 破坏性变更
