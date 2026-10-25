@@ -48,3 +48,9 @@ jobs:
           isolation: docker
           natural-language-write: "false"
           allow-write: "false"
+          # 传受信指令：自动 review 会把它作为 trustedInstructions,
+          # 要求所有 review 输出使用简体中文（代码/路径/命令保持原样）。
+          prompt: |
+            所有 GitHub review 输出（summary 与 inline findings）必须使用简体中文。
+            代码、路径、命令、标识符保持原样。
+            Reply in Simplified Chinese only.
