@@ -1,3 +1,5 @@
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { createInterface, type Interface } from 'node:readline'
 
 import { BilibiliBridgeAdapter, DEFAULT_REPLY_MAX, MAX_TEXT } from './adapter.mjs'
@@ -359,10 +361,22 @@ export class BridgeRuntime {
       saveState: (next) => this.saveAdapterState(next),
       // 回复策略：off=一律不发；draft=只出草稿等主人审；owner=白名单主人直回（数量不限）。
       // 非白名单对端在 adapter 入口即被拒绝；真实发送还受 CLI writesEnabled 与 dry-run 约束。
-      confirmSend: async ({ uid }) => {
+      confirmSend: async ({ uid, text }) => {
         if (replyPolicy === 'off') return false
         if (replyPolicy === 'draft') {
-          this.log('[bilibili-bridge] reply draft only (owner review required) uid=' + String(uid))
+          // 草稿只落本地文件供主人审阅，不投递到 B 站；状态目录已含消息正文，需同样保护。
+          const draftPath = join(dirname(config.statePath), 'drafts.jsonl')
+          try {
+            mkdirSync(dirname(draftPath), { recursive: true })
+            appendFileSync(
+              draftPath,
+              JSON.stringify({ at: new Date().toISOString(), uid: String(uid), text: String(text ?? '') }) + '\n',
+              'utf8',
+            )
+            this.log('[bilibili-bridge] reply draft recorded (not sent) uid=' + String(uid) + ' path=' + draftPath)
+          } catch (error) {
+            this.log('[bilibili-bridge] reply draft record failed: ' + errorMessage(error))
+          }
           return false
         }
         return config.ownerUids.includes(String(uid))

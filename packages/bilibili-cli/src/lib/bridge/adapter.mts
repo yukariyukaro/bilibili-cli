@@ -46,9 +46,13 @@ export function sourceHeader(surface: MessageSurface, sender: string): string {
 }
 
 function sanitizeSender(value: string): string {
+  // 昵称是不可信输入：压平所有换行/控制字符，方括号转全角避免伪造/提前闭合来源头。
   return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ')
+    .replace(/\[/g, '［')
+    .replace(/\]/g, '］')
     .replace(/"/g, "'")
-    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 40)
 }
@@ -159,7 +163,8 @@ function truncateText(text: string): string {
 // thinking 与最终文本应由 adapter 在协议层分开（cc-connect ACP、codex agent_reasoning、
 // claude thinking block）。bridge 不改写正文；若仍检测到带标签的思考块，说明 adapter 违约，
 // fail closed 拒绝发送，并留下明确告警。
-const THINKING_TAG = /<(thinking|reasoning|scratchpad|analysis)>[\s\S]*?<\/\1>/i
+// 只要出现思考类起始标签（可带属性、可未闭合）就视为 adapter 违约，fail closed。
+const THINKING_TAG = /<(thinking|reasoning|scratchpad|analysis)(\s[^>]*)?>/i
 
 function containsThinking(text: string): boolean {
   return THINKING_TAG.test(text)
@@ -715,16 +720,18 @@ export class BilibiliBridgeAdapter {
       try {
         // 同时提供归一化字段和 bridge 帧字段：BridgeClient 会补齐/校验。
         // content 前置来源头，source 供支持结构化元数据的 adapter 使用。
+        // 昵称同时用于来源头和帧字段，必须用同一套清洗结果，避免下游从 name 绕过。
+        const senderName = sanitizeSender(entry.name || entry.uid)
         const result = await this.bridge.sendMessage({
           type: 'message',
           id: entry.id,
           msg_id: entry.id,
           uid: entry.uid,
           user_id: entry.uid,
-          name: entry.name,
-          user_name: entry.name || entry.uid,
+          name: senderName,
+          user_name: senderName,
           session_key: this.platform + ':dm:' + entry.uid,
-          content: sourceHeader(surface, entry.name || entry.uid) + entry.content,
+          content: sourceHeader(surface, senderName) + entry.content,
           reply_ctx: JSON.stringify({ kind: 'dm', uid: entry.uid }),
           source: { platform: this.platform, surface, untrusted: true },
         })
