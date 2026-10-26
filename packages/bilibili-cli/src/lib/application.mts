@@ -164,7 +164,12 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
     if (args.dryRun === true) return { dryRun: true, target: params, requires: ['writesEnabled=true', '本次用户确认', '--confirm'] }
     if (args.confirm !== true || cfg.writesEnabled !== true) throw new CliError('WRITE_DISABLED', '需要开启 writesEnabled 且获得本次确认后使用 --confirm', 3)
     const operationId = randomUUID()
-    const detail: Record<string, unknown> = { operationId, command: name, bvid: params.bvid, rpid: params.rpid, uid: params.uid }
+    const detail: Record<string, unknown> = { operationId, command: name }
+    // 新增写命令仍通过同一审计。仅明文保存准确定位/操作参数，不保存正文、标题、简介或本地路径。
+    for (const key of ['bvid', 'rpid', 'uid', 'id', 'dmid', 'mediaId', 'mediaIds', 'seriesId', 'aids', 'packageId', 'page', 'timeMs', 'num', 'undo', 'like', 'color', 'mode', 'tid', 'private']) {
+      if (params[key] !== undefined) detail[key] = params[key]
+    }
+    detail.requestSha256 = createHash('sha256').update(JSON.stringify(params)).digest('hex')
     const text = params.text
     if (typeof text === 'string' && text.length > 0) detail.textSha256 = createHash('sha256').update(text).digest('hex')
     const record = (status: string): void => {

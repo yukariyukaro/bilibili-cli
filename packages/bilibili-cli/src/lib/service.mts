@@ -32,6 +32,8 @@ import {
   send_msg,
 } from '@yukariyukaro/bilibili-api-ts'
 import { CliError } from './contract.mjs'
+import { createVideoHandlers } from './feature-video.mjs'
+import { createSocialHandlers } from './feature-social.mjs'
 import { credentialFile } from './portable.mjs'
 import type { CommentItem, Service, SubReply } from './service-types.mjs'
 import {
@@ -486,7 +488,16 @@ async function dmSend(dir: string, params: Record<string, unknown>): Promise<unk
 
 type Handler = (dir: string, params: Record<string, unknown>) => Promise<unknown>
 
+const featureCredential = (dir: string, required: boolean): Credential => {
+  if (!required) return loadCredential(dir) ?? new Credential()
+  const credential = requireCredential(dir)
+  if (!credential.hasSessdata()) throw new CliError('AUTH', '登录态不可用，请先执行 bilibili auth status --json', 3)
+  return credential
+}
+
 const handlers: Record<string, Handler> = {
+  ...createVideoHandlers(featureCredential),
+  ...createSocialHandlers(featureCredential),
   auth_status: (dir) => authStatus(dir),
   search,
   video_info: videoInfo,

@@ -95,7 +95,7 @@ const batch = (rows, status = 0) => {
 await check('生成独立 CLI 与纯文档技能，无运行时代码副本', () => {
   assert.equal(exec(process.execPath, [join(source, 'scripts', 'build.mjs'), output]).status, 0)
   assert.deepEqual(readdirSync(skillRoot).sort(), ['SKILL.md', 'references'], 'skills add 目标只应包含 Skill 文档')
-  assert.equal(readdirSync(join(skillRoot, 'references')).sort().join(','), 'bridge.md,cli-contract.md,skill-upgrade.md,test-account-setup.md')
+  assert.equal(readdirSync(join(skillRoot, 'references')).sort().join(','), 'bridge.md,cli-contract.md,feature-workflows.md,skill-upgrade.md,test-account-setup.md')
   assert.equal(readFileSync(join(output, 'SKILL.md'), 'utf8'), readFileSync(join(skillRoot, 'SKILL.md'), 'utf8'))
   assert.equal(existsSync(join(output, 'skill')), false, '发布目录不再生成不会进入 tarball 的 skill/ 副本')
   assert.equal(existsSync(join(output, 'scripts')), false)
@@ -243,7 +243,9 @@ await check('npm exec 在仓库外隔离目录直接运行已构建 tarball，�
 await check('真实分组帮助、schema 和技能发现均无用户状态副作用', () => {
   const schema = json(['schema']).result
   const originalNames = ['auth login start', 'auth login poll', 'auth status', 'video search', 'video info', 'video subtitle', 'video hot', 'comment list', 'comment thread', 'comment create', 'comment delete', 'user info', 'user relation', 'inbox', 'dm status', 'dm read', 'dm send', 'config get', 'config set', 'doctor', 'schema', 'skills list', 'skills read']
-  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, 'bridge run', 'bridge web', 'bridge status', 'bridge stop'].sort())
+  const features = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'features-2.1.0.json'), 'utf8'))
+  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, ...features.map(c => c.name), 'bridge run', 'bridge web', 'bridge status', 'bridge stop'].sort())
+  assert.deepEqual(schema.commands.filter(c => features.some(f => f.name === c.name)), features, '新增命令的独立快照必须对齐')
   assert.equal(schema.version, sourceManifest.version)
   const legacyContract = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'commands-1.0.0.json'), 'utf8'))
   assert.deepEqual(schema.commands.filter((c) => originalNames.includes(c.name)), legacyContract, '原23命令的字段、顺序、描述、默认值与枚举必须保持兼容')
@@ -258,7 +260,7 @@ await check('真实分组帮助、schema 和技能发现均无用户状态副作
   for (const item of schema.commands) {
     assert.equal(invoke([...item.name.split(' '), '--help']).status, 0)
   }
-  for (const group of ['auth', 'video', 'comment', 'user', 'inbox', 'dm', 'config', 'skills', 'bridge']) assert.equal(invoke([group, '--help']).status, 0)
+  for (const group of ['auth', 'video', 'comment', 'user', 'inbox', 'dm', 'config', 'skills', 'bridge', 'danmaku', 'dynamic', 'favorite', 'season', 'stats', 'emoji', 'upload']) assert.equal(invoke([group, '--help']).status, 0)
   const skills = json(['skills', 'list']).result
   assert.equal(skills[0].name, 'bilibili-cli')
   assert.equal(skills[0].version, sourceManifest.version)

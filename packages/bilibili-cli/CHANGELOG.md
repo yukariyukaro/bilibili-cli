@@ -12,6 +12,12 @@
 
 ### 新增与变更
 
+- **2.1.0 接入 `@yukariyukaro/bilibili-api-ts` 17.5.0**：新增 40 条公开命令（Skill 文档版本 2.1.0、`requiresCli: 2.1`）。视频：`video relation|like|coin|favorite|triple|snapshot|summary|toview`；弹幕：`danmaku list|send|recall|like`；`comment like|pin`；`user videos`；`emoji list|detail|add`；动态：`dynamic list|info|post|delete|like|top`；收藏夹：`favorite list|content|create|delete`；旧版 series：`season list|videos|create|add|remove|delete`；`stats overview|fans|video`；`upload topics|missions|cover`。
+  - 所有新增写命令复用同一套写保护：`writesEnabled` 硬开关 + 逐次 `--confirm` + `--dry-run` 只预览 + 审计（正文只存 SHA-256，审计不含标题/简介/本地路径）。投币与三连标注真实硬币支出、不可退回。
+  - **未开放**：完整视频投稿（17.5.0 上游失败分片会无限重排重试，标签校验也有已知反向问题）、动态转发（返回 ID 无可靠契约，实发后无法确认结果）。
+  - 错误映射：B 站风控（HTTP 412 / 业务码 -352）返回 `RISK_CONTROL` 并提示停止操作，不再混在 `BACKEND` 里被误读成可重试。
+  - 验证：`npm run typecheck` 通过；`test/bridge/e2e/12-features.test.mjs` 覆盖新增命令的帮助/schema/JSONL 同源、写门禁、19 位 ID 无损、审计与失败不重试；离线快照为 `test/contracts/features-2.1.0.json`。**真实 B 站只读未取得通过证据**：2026-10-27 本机探测被风控 412 拒绝，Skill-only 子代理真实只读评测因此未运行，不计为通过。
+
 - 控制台改为随 `bilibili bridge run` 在同一进程内自动启动（默认 `127.0.0.1:9820`，`BILIBILI_CONSOLE_PORT` 可改、`BILIBILI_CONSOLE_DISABLE=1` 关闭）；控制台启动失败只记日志，不影响私信监听与退出码。`bridge web` 保留为“控制台托管子进程”的替代入口。
 - bridge 新增刷视频与评论回复能力：`runScrollCycle()` 拉取热门/搜索视频与评论，按 `comment reply_ctx` 把目标交给 agent；agent 回复经 `commentPolicy`（off/draft/owner）、评论上限与 CLI 写入审计后落为评论。控制台「立即执行/定时」触发真实循环并上报 `scroll_done`。
 - 修复：显式单次轮询 `pollOnce()` 不再被「断线自动暂停」短路（暂停只约束后台循环），恢复断线 pending 持久化与跨进程恢复语义；`protocol-driver` 的离线 poll 改为显式 `force`。

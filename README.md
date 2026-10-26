@@ -8,9 +8,9 @@
 <img src="https://img.shields.io/badge/license-MIT-22B5F5" alt="MIT">
 </p>
 
-- **CLI**：搜索、视频信息、字幕、评论、用户资料、私信，以及可选的 bridge 私信监听。
+- **CLI 2.1.0**：搜索、字幕、官方AI总结与快照、弹幕、UP投稿、动态、收藏与合集、本人创作数据，以及受控互动与可选的 bridge 私信监听。
 - **Skill**：给 coding agent 的使用指引；只安装文档，不复制 CLI 源码。
-- **安全默认**：写操作默认关闭；发送或删除评论、发送私信前必须逐次确认。
+- **安全默认**：所有远端写操作默认关闭；点赞收藏、投币三连、弹幕、动态、评论私信、系列管理和封面上传等均须逐次确认。
 
 需要 Node.js 22+。B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供，不依赖 Python 或任何插件宿主。
 
@@ -47,13 +47,15 @@ bilibili comment list --bvid BV1xxxxxxxxx --num 30 --json
 
 ## 写入前请确认
 
-评论、删除与私信默认关闭：
+所有远端写默认关闭，包括点赞/取消、收藏、投币/三连、稍后再看、弹幕、表情添加、动态、评论私信、收藏夹与旧版series管理、封面上传：
 
 1. 用户明确要求后开启写权限：`bilibili config set --key writesEnabled --value true`；
-2. 展示准确目标与最终正文，取得本次确认；
+2. 展示准确动作、目标、最终正文、可见性及硬币支出，取得本次确认；投币1–2枚不可退，三连实际硬币数由平台决定，未明确接受支出边界不执行；
 3. 本次调用带 `--confirm`。
 
-`--dry-run` 只预览，不是授权；写开关也不是长期同意。
+`--dry-run` 只预览，不是授权；写开关也不是长期同意。只有 `ok:true` 且 `result.audited:true` 才报告接口受理，失败或未知写结果不自动重试。video toview 是远端添加/移除，不是队列查询；全部公开命令见 [CLI 契约](skills/bilibili-cli/references/cli-contract.md)。
+
+多步读取参见 [能力工作流](skills/bilibili-cli/references/feature-workflows.md)：从真实结果取得动态/弹幕字符串ID、收藏夹和合集ID，不保证示例BV或UID始终非空。`available:false`、空数组、权限拒绝和风控不是有内容完成。创作统计需本人权限；单稿数据是编辑记录与分P管理，不提供完播率。无本地ASR，动态转发和完整视频投稿未开放（完整投稿存在17.5.0上游无限重试及标签反向校验风险），不能调用底层API或其他工具绕路。
 
 ## 仓库结构
 
