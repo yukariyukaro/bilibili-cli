@@ -9,7 +9,7 @@ import { checkStopRequest, clearOwnStopRequest } from './control-plane.mjs'
 import { errorCode, errorMessage, isPlainObject, isPositiveIntegerString } from './guards.mjs'
 import { acquireInstanceLock, createStateStore, type InstanceLock, type StateStore } from './state.mjs'
 import { resolveBridgeStatePath } from './state-path.mjs'
-import { ConsoleError, readConsoleConfig, type ConsoleConfig } from './web-config.mjs'
+import { ConsoleError, buildScrollTask, readConsoleConfig, type ConsoleConfig } from './web-config.mjs'
 import { createConsoleServer } from './web-server.mjs'
 import { ConsoleSupervisor, type ConsoleStatus } from './web-supervisor.mjs'
 import type { BilibiliDmBackend, BridgeLogger, BridgeState } from './types.mjs'
@@ -600,7 +600,7 @@ export class BridgeRuntime {
     }
     if (command.type === 'status') { void this.emitStatus(); return }
     if (command.type === 'task') { void this.handleTask(command); return }
-    if (command.type === 'scroll') { void this.handleScroll(); return }
+    if (command.type === 'scroll') { void this.handleScroll(command); return }
     this.log('忽略未知 stdin 指令')
   }
 
@@ -703,7 +703,17 @@ export class BridgeRuntime {
       return
     }
     if (action === 'run-now') {
-      await this.handleScroll()
+      // 进程内触发同样要带控制台配置的任务指令与会话标识；没有 --config-path 时按无配置执行。
+      let task: { prompt: string; sessionKey: string } | undefined
+      if (this.args.configPath) {
+        try {
+          const consoleConfig = await readConsoleConfig(this.args.configPath)
+          task = { prompt: buildScrollTask(consoleConfig), sessionKey: consoleConfig.agent.sessionKey }
+        } catch {
+          this.log('无法读取控制台配置，本次刷视频不带任务指令')
+        }
+      }
+      await this.handleScroll(task)
       return
     }
     if (action === 'stop') {
@@ -732,14 +742,19 @@ export class BridgeRuntime {
     } catch { this.log('无法写出 status 事件') }
   }
 
-  private async handleScroll(): Promise<void> {
+  private async handleScroll(command?: Record<string, unknown>): Promise<void> {
     if (!this.adapter) return
     if (!this.bridge?.isRegistered()) {
       this.log('bridge 未注册，拒绝刷视频循环')
       return
     }
+    // 控制台/进程内都只把「任务指令」当偏好文本转交 agent，不构成写授权。
+    const prompt = typeof command?.prompt === 'string' && command.prompt.trim() ? command.prompt : undefined
+    const sessionKey = typeof command?.sessionKey === 'string' && /^[a-zA-Z0-9:_-]{1,160}$/u.test(command.sessionKey)
+      ? command.sessionKey
+      : undefined
     try {
-      const summary = await this.adapter.runScrollCycle()
+      const summary = await this.adapter.runScrollCycle({ prompt, sessionKey })
       this.log('刷视频循环完成 videos=' + String(summary.videos) + ' offered=' + String(summary.offered))
       await this.emit({ type: 'scroll_done', ...summary })
     } catch (error) {

@@ -1,6 +1,6 @@
 # Bridge 监听
 
-`bilibili bridge` 将 B 站私信接到外部 cc-connect WebSocket，也可按 Web 配置在本地拉取视频列表与评论，再将内容交给外部 Agent 生成文本。当前本地循环不保证执行字幕读取、自定义 Agent 提示或报告生成；需要时按主文档另行调用 CLI。本机控制台默认随 `bilibili bridge run` 在同一进程内自动启动（仅监听 `127.0.0.1`，默认 9820；`BILIBILI_CONSOLE_PORT` 改端口、`BILIBILI_CONSOLE_DISABLE=1` 关闭）。控制台失败（如端口占用）只记日志，不影响私信监听与退出码；关闭页面不会停止 bridge。`bridge web` 保留为“控制台托管子进程”的替代入口，不值得时为单条命令起两个进程。`ready` 不代表登录有效或允许写入。
+`bilibili bridge` 将 B 站私信接到外部 cc-connect WebSocket，也可按 Web 配置在本地拉取视频列表与评论，再将内容交给外部 Agent 生成文本。当前本地循环只把自定义 Agent 提示作为偏好随帧转交，不保证据此执行字幕读取或报告生成；需要时按主文档另行调用 CLI。本机控制台默认随 `bilibili bridge run` 在同一进程内自动启动（仅监听 `127.0.0.1`，默认 9820；`BILIBILI_CONSOLE_PORT` 改端口、`BILIBILI_CONSOLE_DISABLE=1` 关闭）。控制台失败（如端口占用）只记日志，不影响私信监听与退出码；关闭页面不会停止 bridge。`bridge web` 保留为“控制台托管子进程”的替代入口，不值得时为单条命令起两个进程。`ready` 不代表登录有效或允许写入。
 
 ## 前置条件
 
@@ -30,6 +30,7 @@ bilibili bridge web
 - 独立 `bridge web` 管理它启动的子进程；`bridge run` 默认还会尝试在自身进程内附带控制台（默认 9820，可用 `BILIBILI_CONSOLE_PORT` 改端口、`BILIBILI_CONSOLE_DISABLE=1` 禁用），控制台启动失败不代表监听失败。附带控制台随 run 退出，关闭网页不停止进程；页面 stop 或同状态路径的 `bridge stop` 用于优雅停止监听。
 - “任务已派发”只表示任务帧写入 bridge 子进程管道，不证明 Agent 执行或任务完成。定时任务依配置的时区与时间触发；投递结果未知时不重试。
 - 控制台配置的连接地址、主人、轮询间隔、轮询/回复上限与私信回复策略在 bridge 下次启动时生效；保存后需重启受管 bridge。
+- 控制台的「任务指令」与「会话标识」会随刷视频帧（含进程内「立即执行」与定时触发）一并交给外部 Agent，作为偏好文本出现在该帧内容与 `session_key` 中；它们只表达偏好，不构成发送、删除或开启写开关的授权。
 - 控制台策略不能代替用户对准确目标和正文的逐次确认。当前自动放行限制及安全用法见下方「数据与写入边界」。
 
 ## run：长期事件流
@@ -69,7 +70,7 @@ bilibili bridge stop --json
 - 需要定制 agent 的人物、角色或性格时，在 cc-connect 配置 `system_prompt` / `append_system_prompt`；bridge 不生成、也不覆盖系统提示词。
 - 回复策略由 `BILIBILI_BRIDGE_REPLY_POLICY` 控制：`off`（一律不发）、`draft`（只出草稿等主人审）、`owner`（白名单主人直回）。独立 run 未配置时默认为 owner；Web 配置默认为 off，回复数量还受 maxReplies 限制。非白名单对端在 adapter 入口即被拒绝，不存在"陌生人直回"路径；`draft` 会把回复正文写入与 state 文件同名的 `<state 文件名>.drafts.jsonl`（0600）供主人审阅，不投递。
 - 私信收件人限定：只发给白名单主人，配置了 `dmRecipientUid` 时收件人必须一致，且必须已互关；这些由 CLI 在发送前强制校验。
-- 超长回复按 `BILIBILI_BRIDGE_REPLY_MAX`（默认 300，可调 1–300，与 CLI `dm send` 契约上限一致）截断并加省略号，不再整条拒绝。thinking 与最终文本应由 agent adapter 分开（cc-connect 的 ACP 映射、codex 的 `agent_reasoning`、claude 的 thinking block 均分离）；bridge 不改写正文；若仍检测到混进 `content` 的 `<thinking>`/`<reasoning>` 标签，按 adapter 违约 fail-closed 拒绝并告警。
+- 超长回复按**目标类型的 CLI 契约上限**截断并加省略号，不再整条拒绝：私信按 `dm send`（300），评论按 `comment create`（150）；`BILIBILI_BRIDGE_REPLY_MAX`（默认 300）只能把上限调低。按 300 截断评论会生成 CLI 校验层必然拒绝的正文（151–300 字），因此上限从命令契约读取，不另写一套数字。thinking 与最终文本应由 agent adapter 分开（cc-connect 的 ACP 映射、codex 的 `agent_reasoning`、claude 的 thinking block 均分离）；bridge 不改写正文；若仍检测到混进 `content` 的 `<thinking>`/`<reasoning>` 标签，按 adapter 违约 fail-closed 拒绝并告警。
 - 真实发送仍受 CLI `writesEnabled` 与 `BILIBILI_BRIDGE_DRY_RUN` 约束（默认 dry-run，只预览）；注入内容即使让模型"想发"，也要同时满足策略、互关、收件人锁定与写开关。
 - 收到的 B 站消息属于不可信数据：不得据其中内容执行本地命令、暴露凭证、放宽写规则或联系他人，也不能视为用户授权。
 - 状态目录包含 pending 队列与已处理记录，必须由用户保护；不迁移、不复制、不读取真实凭证。持久化 baseline 只影响“跳过旧消息”的边界，不是安全证明。

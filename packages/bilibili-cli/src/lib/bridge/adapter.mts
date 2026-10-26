@@ -1,3 +1,4 @@
+import { commands } from '../contract.mjs'
 import { isPlainObject } from './guards.mjs'
 import {
   hasUnsafeIntegerId,
@@ -23,6 +24,23 @@ export { normalizeState }
 
 export const MAX_TEXT = 300
 export const DEFAULT_REPLY_MAX = 300
+
+/**
+ * 正文上限以命令契约为准，桥接侧不再另写一套数字。
+ * 评论与私信的上限不同（当前 150 / 300）：按 300 截断评论会生成 CLI 校验层直接拒绝的请求。
+ */
+function contractTextMax(commandName: string, fallback: number): number {
+  const definition = commands.find((item) => item.name === commandName) as
+    | { fields?: Record<string, { maxLength?: number }> }
+    | undefined
+  const max = definition?.fields?.text?.maxLength
+  return typeof max === 'number' && max >= 1 ? max : fallback
+}
+
+/** 评论正文上限（取自 comment create 契约）。 */
+export const COMMENT_TEXT_MAX = contractTextMax('comment create', MAX_TEXT)
+/** 私信正文上限（取自 dm send 契约）。 */
+export const DM_TEXT_MAX = contractTextMax('dm send', MAX_TEXT)
 export const STATE_VERSION = 1
 export const MAX_PENDING = 1000
 
@@ -982,8 +1000,12 @@ export class BilibiliBridgeAdapter {
    * 刷一批视频，把「视频 + 目标评论」作为一帧交给 agent；帧里带 comment reply_ctx，
    * agent 的回复会落到该视频（或该条评论）上。只读阶段失败不影响已发出的帧。
    */
-  async runScrollCycle(): Promise<ScrollSummary> {
+  async runScrollCycle(options: { prompt?: string; sessionKey?: string } = {}): Promise<ScrollSummary> {
     const summary: ScrollSummary = { videos: 0, offered: 0, readFailures: 0, sendFailures: 0 }
+    // 控制台里配置的「任务指令」与「会话标识」必须真的进入交给 agent 的那一帧；
+    // 否则 UI 上的配置只是死字段（此前 buildScrollTask 的结果被直接丢弃）。
+    const taskPrompt = typeof options.prompt === 'string' && options.prompt.trim() ? options.prompt.trim() : ''
+    const configuredSessionKey = typeof options.sessionKey === 'string' && options.sessionKey ? options.sessionKey : ''
     const backend = this.backend
     const prefs = this.scroll
     let raw: unknown
@@ -1023,6 +1045,7 @@ export class BilibiliBridgeAdapter {
       }
       const lines = [
         sourceHeader('comment', video.title || video.bvid).trimEnd(),
+        ...(taskPrompt ? [taskPrompt] : []),
         '视频：' + (video.title || video.bvid) + '（' + video.bvid + '）',
         target.rpid ? '待回复评论 rpid=' + String(target.rpid) + '：' + target.comment : '该视频暂无可回复评论',
         prefs.style ? '风格要求：' + prefs.style : '',
@@ -1037,7 +1060,7 @@ export class BilibiliBridgeAdapter {
           user_id: this.ownerUidList[0] ?? '',
           name: '本地刷视频',
           user_name: '本地刷视频',
-          session_key: this.platform + ':comment:' + video.bvid,
+          session_key: configuredSessionKey || (this.platform + ':comment:' + video.bvid),
           content: lines.join('\n'),
           reply_ctx: JSON.stringify(target.rpid === undefined
             ? { kind: 'comment', bvid: video.bvid }
@@ -1117,13 +1140,6 @@ export class BilibiliBridgeAdapter {
       )
       return { ok: false, reason: 'thinking_content' }
     }
-    const { text: content, truncated } = truncateReply(raw, this.replyMax)
-    if (truncated) {
-      this.logger.log?.(
-        '[bilibili-bridge] reply truncated: ' + String(raw.length) + ' -> ' + String(content.length) + ' characters',
-      )
-    }
-
     let context: unknown
     try {
       context = typeof reply.reply_ctx === 'string' ? parseJsonLossless(reply.reply_ctx) : reply.reply_ctx
@@ -1135,11 +1151,24 @@ export class BilibiliBridgeAdapter {
       this.logger.error?.('[bilibili-bridge] reply rejected: reply_ctx is not an object')
       return { ok: false, reason: 'invalid_reply_ctx' }
     }
-    if (context.kind === 'comment') return this.handleCommentReply(context, content)
-    if (context.kind !== 'dm') {
+    if (context.kind !== 'comment' && context.kind !== 'dm') {
       this.logger.error?.('[bilibili-bridge] reply rejected: reply_ctx is not a dm or comment context')
       return { ok: false, reason: 'invalid_reply_ctx' }
     }
+
+    // 目标不同 → CLI 契约上限不同（comment create 150 / dm send 300）。
+    // 先按目标取上限再截断，否则 151–300 字的评论回复会在 CLI 校验层被拒、根本发不出去。
+    const cap = context.kind === 'comment'
+      ? Math.min(this.replyMax, COMMENT_TEXT_MAX)
+      : Math.min(this.replyMax, DM_TEXT_MAX)
+    const { text: content, truncated } = truncateReply(raw, cap)
+    if (truncated) {
+      this.logger.log?.(
+        '[bilibili-bridge] reply truncated: ' + String(raw.length) + ' -> ' + String(content.length) +
+        ' characters (cap ' + String(cap) + ', kind ' + String(context.kind) + ')',
+      )
+    }
+    if (context.kind === 'comment') return this.handleCommentReply(context, content)
 
     const uid = String(context.uid ?? '')
     if (!uid || !this.ownerUids.has(uid)) {

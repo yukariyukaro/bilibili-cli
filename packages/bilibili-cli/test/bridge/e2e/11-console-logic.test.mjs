@@ -165,3 +165,62 @@ test('刷视频循环：按评论目标投递、遵守屏蔽标签、缺能力�
   assert.equal(empty.offered, 0)
   assert.equal(empty.readFailures, 1, '缺少视频能力必须如实记为读取失败')
 })
+test('评论回复按 CLI 契约上限截断，私信仍按 300', async (t) => {
+  const installed = installedOrSkip(t)
+  if (!installed) return
+  const { BilibiliBridgeAdapter, COMMENT_TEXT_MAX, DM_TEXT_MAX } = await load(installed, 'adapter')
+  assert.equal(COMMENT_TEXT_MAX, 150, '评论上限必须与 comment create 契约一致')
+  assert.equal(DM_TEXT_MAX, 300, '私信上限必须与 dm send 契约一致')
+
+  const posted = []
+  const adapter = new BilibiliBridgeAdapter({
+    bridge: fakeBridge([]),
+    backend: {
+      readDm: async () => [],
+      sendDm: async (uid, text) => { posted.push({ kind: 'dm', text }); return { ok: true, audited: true } },
+      postComment: async (target, text) => { posted.push({ kind: 'comment', text }); return { ok: true, audited: true } },
+    },
+    ownerUids: '1',
+    confirmSend: async () => true,
+    confirmComment: async () => true,
+    replyMax: 300,
+  })
+
+  const long = '评'.repeat(200)
+  const comment = await adapter.handleReply({ content: long, reply_ctx: { kind: 'comment', bvid: 'BV1xx411c7mD' } })
+  assert.equal(comment.ok, true)
+  assert.equal(posted.at(-1).kind, 'comment')
+  assert.equal(posted.at(-1).text.length, 150, '200 字评论回复必须截断到契约上限 150，否则 CLI 会以 VALIDATION 拒绝')
+  assert.equal(posted.at(-1).text, long.slice(0, 149) + '…', '截断保留省略号，总长仍等于契约上限')
+
+  const dm = await adapter.handleReply({ content: long, reply_ctx: { kind: 'dm', uid: '1' } })
+  assert.equal(dm.ok, true)
+  assert.equal(posted.at(-1).kind, 'dm')
+  assert.equal(posted.at(-1).text.length, 200, '200 字私信未超 300 上限，不得截断')
+
+  const tooLong = '私'.repeat(350)
+  await adapter.handleReply({ content: tooLong, reply_ctx: { kind: 'dm', uid: '1' } })
+  assert.equal(posted.at(-1).text.length, 300, '350 字私信必须截断到 300')
+})
+
+test('刷视频循环把控制台配置的任务指令与会话标识带进交给 agent 的帧', async (t) => {
+  const installed = installedOrSkip(t)
+  if (!installed) return
+  const { BilibiliBridgeAdapter } = await load(installed, 'adapter')
+  const sent = []
+  const adapter = new BilibiliBridgeAdapter({
+    bridge: fakeBridge(sent),
+    backend: {
+      readDm: async () => [],
+      sendDm: async () => ({ ok: true }),
+      videoHot: async () => ({ videos: [{ bvid: 'BV1xx411c7mD', title: '视频' }] }),
+      comments: async () => [{ rpid: 7, content: '真实评论' }],
+    },
+    ownerUids: '1',
+    scroll: { source: 'hot', numVideos: 1, commentsPerVideo: 1, avoidTags: '', style: '' },
+  })
+  await adapter.runScrollCycle({ prompt: '[本地主人配置的 B 站每日任务]\n只看科技区', sessionKey: 'bilibili:daily' })
+  assert.equal(sent.length, 1)
+  assert.match(sent[0].content, /只看科技区/, '配置的任务指令必须进入交给 agent 的帧')
+  assert.equal(sent[0].session_key, 'bilibili:daily', '配置的会话标识必须生效')
+})

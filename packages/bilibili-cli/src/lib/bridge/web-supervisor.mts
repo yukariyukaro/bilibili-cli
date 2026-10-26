@@ -52,7 +52,15 @@ export class ConsoleSupervisor {
       const uid = config.notification.ownerUid || config.connection.ownerUids[0]
       if (!uid) throw new ConsoleError('CONFIG', '至少配置一个主人 UID')
       // 本地刷视频循环：由 bridge 自己拉视频与评论，agent 只负责出评论正文。
-      this.pendingTask = { type: 'scroll', id: 'daily-' + randomUUID(), uid, agentPrompt: buildScrollTask(config) }
+      // prompt / sessionKey 必须随帧下发，子进程会把它们编进交给 agent 的那一帧；
+      // 之前写成 agentPrompt 且子进程不读，导致控制台的「任务指令」「会话标识」完全是死字段。
+      this.pendingTask = {
+        type: 'scroll',
+        id: 'daily-' + randomUUID(),
+        uid,
+        prompt: buildScrollTask(config),
+        sessionKey: config.agent.sessionKey,
+      }
       this.event('info', '每日任务已排队，等待 bridge 注册后交给 Agent')
       this.taskTimer = setTimeout(() => { this.pendingTask = null; this.taskTimer = null; this.event('error', '任务等待注册超时，未自动重试') }, 60000)
       this.flushTask()
