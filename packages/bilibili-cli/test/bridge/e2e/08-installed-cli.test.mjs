@@ -44,7 +44,15 @@ test('安装后 CLI 的版本、schema 与 doctor 契约（离线，不访问 B 
   const report = await doctor(home)
   assert.equal(report.dependenciesInstalled, true, '安装产物必须自带 @yukariyukaro/bilibili-api-ts')
   assert.equal(report.library, '@yukariyukaro/bilibili-api-ts')
-  assert.match(String(report.libraryVersion), /^17\.4\./)
+  // 只锁主版本：上游 17.x 的次版本/补丁会继续发布（17.4.x → 17.5.0），写死会误报。
+  const declaredLibrary = pkg.dependencies?.['@yukariyukaro/bilibili-api-ts'] ?? ''
+  const declaredMajor = /^\^?(\d+)\./.exec(declaredLibrary)?.[1]
+  assert.ok(declaredMajor, `安装包必须声明 @yukariyukaro/bilibili-api-ts 依赖，当前为 "${declaredLibrary}"`)
+  assert.equal(
+    String(report.libraryVersion).split('.')[0],
+    declaredMajor,
+    `libraryVersion 必须与声明的主版本一致（声明 ${declaredLibrary}，实际 ${report.libraryVersion}）`,
+  )
   assert.equal(report.credentialPresent, false)
   assert.equal(report.writesEnabled, false)
   assert.equal(samePath(report.stateDir, home), true, 'doctor 的 stateDir 必须是显式隔离目录')
