@@ -828,7 +828,8 @@ async function runChildMain() {
     }
     if (command.cmd === 'poll') {
       try {
-        const summary = await adapter.pollOnce()
+        // 显式 poll 命令代表“现在就读一次”，因此绕过离线自动暂停。
+        const summary = await adapter.pollOnce({ force: true })
         emit({ event: 'poll', summary, status: adapter.getStatus() })
       } catch (error) {
         emit({ event: 'poll-error', message: error.message })

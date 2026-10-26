@@ -52,6 +52,17 @@ export const commands: CommandDefinition[] = [
       ownerUids: string('允许的 B 站账号 UID，逗号分隔正安全整数；未传时读取 BILIBILI_OWNER_UID', { pattern: '^[1-9][0-9]*(?:,[1-9][0-9]*)*$', env: 'BILIBILI_OWNER_UID' }),
       url: string('cc-connect bridge WebSocket 地址，仅 ws:// 或 wss://；未传时读取 CC_CONNECT_BRIDGE_URL', { pattern: '^wss?://', env: 'CC_CONNECT_BRIDGE_URL' }),
       pollMs: { type: 'integer', description: '轮询间隔毫秒，最小 6000；未传时读取 BILIBILI_POLL_MS，再回退 6000', minimum: 6000, maximum: 2147483647, default: 6000, defaultSource: 'env', env: 'BILIBILI_POLL_MS' },
+      configPath: string('Web 控制台配置文件路径；显式提供时读取控制台配置'),
+    },
+  },
+  {
+    name: 'bridge web',
+    description: '启动本机 Web 控制台（仅 127.0.0.1）',
+    stream: true,
+    fields: {
+      port: integer('本机控制台端口', 0, 65535, 9820),
+      configPath: string('控制台配置文件路径；默认 bridge/console.json'),
+      statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json'),
     },
   },
   { name: 'bridge status', description: '读取已运行 bridge 的有限状态', fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json') } },

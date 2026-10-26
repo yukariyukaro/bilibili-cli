@@ -47,6 +47,15 @@ function bridgeRunArgs(args: ValidatedArgs, options: unknown): BridgeRunArgs {
   if (typeof url === 'string') result.url = url
   const pollMs = args.pollMs
   if (typeof pollMs === 'number' && hasRawOption(options, 'pollMs')) result.pollMs = pollMs
+  if (typeof args.configPath === 'string') result.configPath = args.configPath
+  return result
+}
+
+function consoleArgs(args: ValidatedArgs): { port?: number; configPath?: string; statePath?: string } {
+  const result: { port?: number; configPath?: string; statePath?: string } = {}
+  if (typeof args.port === 'number') result.port = args.port
+  if (typeof args.configPath === 'string') result.configPath = args.configPath
+  if (typeof args.statePath === 'string') result.statePath = args.statePath
   return result
 }
 
@@ -121,7 +130,13 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     parent.action(async (options: unknown) => {
       active = definition
       if (definition.stream === true) {
-        const args = bridgeRunArgs(validate(definition, options, true), options)
+        const validated = validate(definition, options, true)
+        if (definition.name === 'bridge web') {
+          const { runConsole } = await import('../lib/bridge/web-server.mjs')
+          process.exitCode = await runConsole(consoleArgs(validated))
+          return
+        }
+        const args = bridgeRunArgs(validated, options)
         const { runBridge } = await import('../lib/bridge/main.mjs')
         const earlySignal = signalExitCode(streamSignal)
         if (earlySignal !== undefined) {

@@ -235,6 +235,40 @@ export class BilibiliCliBackend {
     return result
   }
 
+  /** 刷视频：只读热门列表；CLI 负责参数校验与分页字段。 */
+  async videoHot(num: number): Promise<unknown> {
+    return this.call('video hot', { num })
+  }
+
+  async videoSearch(keyword: string, num: number): Promise<unknown> {
+    return this.call('video search', { keyword, num })
+  }
+
+  async comments(bvid: string, num: number): Promise<unknown[]> {
+    const result = await this.call('comment list', { bvid, num })
+    if (!isPlainObject(result) || !Array.isArray(result.comments)) {
+      throw failure('CLI_PROTOCOL', 'comment list 未返回 comments 数组')
+    }
+    return result.comments
+  }
+
+  /** 真实评论走 CLI 的写入审计；dry-run 只预览，未知结果不重试。 */
+  async postComment(
+    target: { bvid: string; rpid?: number },
+    text: string,
+    { confirm = false }: { confirm?: boolean } = {},
+  ): Promise<unknown> {
+    const base: Record<string, unknown> = { bvid: target.bvid, text }
+    if (target.rpid !== undefined) base.rpid = target.rpid
+    if (this.env.BILIBILI_BRIDGE_DRY_RUN !== 'false') return this.call('comment create', { ...base, dryRun: true })
+    if (confirm !== true) throw failure('CONFIRM_REQUIRED', '真实评论需要逐次确认')
+    const result = await this.call('comment create', { ...base, confirm: true })
+    if (!isPlainObject(result) || result.audited !== true) {
+      throw failure('WRITE_OUTCOME_UNKNOWN', 'CLI 未返回审计成功；评论写入状态未知，不得重试')
+    }
+    return result
+  }
+
   async close(): Promise<void> {
     if (this.closing) return this.closing
     this.closed = true

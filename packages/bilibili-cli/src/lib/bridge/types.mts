@@ -148,7 +148,20 @@ export interface BridgeState {
   seen: SeenEntry[]
 }
 
+export interface BilibiliCommentTarget {
+  bvid: string
+  rpid?: number
+}
+
+/**
+ * bridge 只依赖最小能力面。刷视频与评论是可选能力：缺失时相关动作必须显式拒绝，
+ * 不能静默降级成“成功”。
+ */
 export interface BilibiliDmBackend {
   readDm(uid: string): Promise<unknown>
   sendDm(uid: string, text: string, options?: { confirm?: boolean }): Promise<unknown>
+  videoHot?(num: number): Promise<unknown>
+  videoSearch?(keyword: string, num: number): Promise<unknown>
+  comments?(bvid: string, num: number): Promise<unknown[]>
+  postComment?(target: BilibiliCommentTarget, text: string, options?: { confirm?: boolean }): Promise<unknown>
 }

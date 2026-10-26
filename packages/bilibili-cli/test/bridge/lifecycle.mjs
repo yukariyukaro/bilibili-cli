@@ -418,6 +418,8 @@ async function makeBaseEnv(providedEnv) {
   // 测试绝不触发真实写；本地 WS 也不会发送 reply。
   base.BILIBILI_BRIDGE_DRY_RUN = 'true'
   base.BILIBILI_CLI_COMMAND = 'bilibili'
+  // 控制台随 bridge run 自动启动：用临时端口避免并行/残留实例抢占，且不改变时序断言。
+  base.BILIBILI_CONSOLE_PORT = '0'
   base.NODE_OPTIONS = ''
   base.NODE_PATH = ''
   return base
@@ -431,7 +433,7 @@ async function assertJsonlEvents(proc) {
   for (const line of proc.stdout) {
     const event = parseEvent(line)
     assert.ok(event, 'stdout 必须只有 JSON 对象行：' + line)
-    assert.ok(['registered', 'ready', 'stopped', 'error'].includes(event.type), '未知 stdout 事件类型：' + line)
+    assert.ok(['registered', 'ready', 'stopped', 'error', 'console_ready'].includes(event.type), '未知 stdout 事件类型：' + line)
   }
 }
 
