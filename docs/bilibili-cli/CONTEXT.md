@@ -92,11 +92,21 @@ node packages/bilibili-cli/test/bridge/docker/run.mjs --check
 
 默认build输出是Git根目录release/bilibili-cli，目标须为空；不要为重建而擅自删除已有发布目录。源码pack会prepack编译；预编译安装无需TS。维护脚本的完整历史测试 setup 需要 git 及固定历史 commit，产品运行不需要 git。
 
-## 7. 下一步与已知限制
+## 7. Bridge Web 控制台现状与本轮验证
+
+源码核对范围：`src/lib/contract.mts`、`src/lib/bridge/{web-config,web-server,web-supervisor,web-assets,main,state-path}.mts` 与 CLI 流式分发逻辑。`bilibili bridge web` 是前台长期 HTTP 服务，仅绑定 `127.0.0.1`；启动 stdout 一次输出 `console_ready` JSON。浏览器每约 5 秒轮询状态 API，不使用 SSE/浏览器 WebSocket 事件订阅；配置 API 带 revision 并发检查。访问 token 通过启动 URL hash 提供给页面，服务端从 `BILIBILI_CONSOLE_TOKEN` 取值或随机生成。
+
+命令支持 `--port`（默认 9820，0 可分配临时端口）、`--config-path`（默认 bridge 状态文件旁 `console.json`）、`--state-path`（显式参数 > `BILIBILI_BRIDGE_STATE` > 账号状态目录）。托管 bridge 运行设置优先级为显式 run 参数 > 环境变量 > 控制台配置 > 内置默认值；cc-connect token 仅由 `CC_CONNECT_BRIDGE_TOKEN` 环境提供。连接/轮询/回复策略等属于进程运行配置；刷视频、回复风格、通知、定时、Agent session/prompt 是任务偏好，由 supervisor 编入任务文本，不等于写授权。控制台通知字段不自动发评论/@/私信。
+
+`task_sent` 表示任务帧已写给本地 bridge 子进程，不证明 Agent 完成、B 站接口受理或消息送达；未知 dispatch 结果不自动重试。定时调度先 claim 当天 slot，失败不会当日自动重投。Issue #26 仍未完成：控制台实现和 dispatch 信号不构成生命周期、真实存储恢复、跨平台或性能验收。
+
+本轮验证：`npm run typecheck` 已通过；`npm test` 在当前 sandbox 被 `spawnSync` 的 `EPERM` 阻断；没有 E2E 成功结果。未运行发布构建，不生成/修改 `dist`，不提交。
+
+## 8. 下一步与已知限制
 
 - 阶段2.5：2.0.0 已落地版本报告（`doctor.skill`、`skills list` 的 `cliVersion`/`docVersion`/`matchesCli`）；仍未实现 `skills status` 只读诊断、`skills link` 一键对齐与发布形态 A/B/C 裁决。见路线图第七节与 U20–U22；不得宣称升级后 CLI 已自动跟进。
 - 阶段3：cc-connect思想的分层重构、可靠事件/消费确认、agent适配、会话绑定；尚未开始。
-- 阶段4：可视化控制台、逐次审批、Skill配置闭环；尚未开始。
+- 阶段4：本地 Web 控制台已有实现并由本节记录；逐次审批、Skill 配置闭环及 Issue #26 的完整验收仍未完成。
 - 阶段5：Codex/Claude Code等薄插件，需先验证宿主能力；可选，尚未开始。
 - 不因历史目标自动开新阶段。继续前先读规则、路线图与当前源码，核实用户这次授权范围。
 - B站私信仍单页30，积压分页未验证；cc-connect无送达ack，不能宣称exactly-once；pending含正文，状态目录需保护。锁guard崩溃可能需人工核验恢复。

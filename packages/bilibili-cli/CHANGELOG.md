@@ -12,6 +12,19 @@
 
 ### 新增与变更
 
+- 控制台改为随 `bilibili bridge run` 在同一进程内自动启动（默认 `127.0.0.1:9820`，`BILIBILI_CONSOLE_PORT` 可改、`BILIBILI_CONSOLE_DISABLE=1` 关闭）；控制台启动失败只记日志，不影响私信监听与退出码。`bridge web` 保留为“控制台托管子进程”的替代入口。
+- bridge 新增刷视频与评论回复能力：`runScrollCycle()` 拉取热门/搜索视频与评论，按 `comment reply_ctx` 把目标交给 agent；agent 回复经 `commentPolicy`（off/draft/owner）、评论上限与 CLI 写入审计后落为评论。控制台「立即执行/定时」触发真实循环并上报 `scroll_done`。
+- 修复：显式单次轮询 `pollOnce()` 不再被「断线自动暂停」短路（暂停只约束后台循环），恢复断线 pending 持久化与跨进程恢复语义；`protocol-driver` 的离线 poll 改为显式 `force`。
+- 新增 `test/bridge/e2e/10-console.test.mjs`：覆盖控制台自动启动、静态资源、CSP/安全头、鉴权、Origin 与 Fetch-Metadata 拒绝、查询参数拒绝、配置 CAS 冲突、0600 落盘、请求体上限、控制动作与 stdin EOF 优雅退出。
+- 新增 `bilibili bridge web` 本机控制台：仅监听 `127.0.0.1`，支持连接、私信/评论回复策略与上限、刷视频偏好、每日时区/日期、@/私信通知偏好和 Agent 任务指令；配置使用 0600 原子写入，API 使用 Bearer、Host/Origin 校验、CSP、请求大小限制和乐观版本冲突检测。控制台关闭不停止服务；Agent 任务投递只表示本地 bridge 已写入 cc-connect，不表示 Agent 执行或 B 站写入完成。评论、@、私信通知仍不自动获得写授权。
+- `bridge run` 支持 `--config-path`；配置可提供最大轮询/回复次数。重连不会重置已耗尽的轮询上限，只有明确手动恢复才重置；未知写入结果不自动重试。
+- 补充 bridge web 命令、HTTP 轮询/控制 API、启动 token、配置优先级及任务派发语义文档；明确控制台任务偏好不是运行时写授权，通知不自动执行，dispatch 不代表完成。
+- 修复：评论回复按**目标类型的 CLI 契约上限**截断（评论 150 / 私信 300），上限从 `comment create` 与 `dm send` 契约读取。此前统一按 `replyMax`（默认 300）截断，151–300 字的评论回复会在 CLI 校验层以 `VALIDATION` 失败、根本发不出去。诊断同时说明：不建议把公开契约的 150 直接改成 300——评论真实上限远高于此，301 以上仍会撞同一堵墙；要放宽应作为独立契约变更（例如 150 → 1000）并同步文档与测试。
+- 修复：控制台「任务指令」与「会话标识」此前是死字段——`buildScrollTask()` 的结果被写进 `agentPrompt` 而子进程不读，进程内「立即执行」也不构造任务文本；`agent.sessionKey` 更是从未下发。现在两者随刷视频帧进入交给 agent 的内容与 `session_key`，`run-now` 与定时触发都生效。
+- 修复测试脆性：`scripts/verify.mjs` 与 `test/bridge/e2e/08-installed-cli.test.mjs` 不再把 `@yukariyukaro/bilibili-api-ts` 的版本写死为 `17.4.x`，改为与 `package.json` 声明的主版本比对。上游发布 `17.5.0` 后，旧的写死断言会让完整验收直接失败，属于用版本号冒充兼容性检查。
+- 新增 `references/test-account-setup.md`：说明专用测试账号、`BILIBILI_SKILL_HOME` 隔离目录、扫码登录与 `auth status` 双字段自检、真实只读入口的必需/可选环境变量、必须避免的写开关，以及验证后的清理边界。发布门禁的 `references` 清单同步更新。
+- 验证记录（2026-10-25，专用测试账号 UID 39374538，隔离状态目录，未开启写入）：`npm run typecheck` 通过；真实只读经 CLI 直连全部通过——`auth status`（`logged_in:true`）、`video hot`、`video search`、`video info`、`video subtitle`（无字幕分支）、`comment list`、`user info`、`inbox at`/`reply`、`dm status`；`user relation` 对自身 UID 按契约返回 `VALIDATION`（预期护栏，非缺陷）。真实 `npm pack` + `--prefix` 安装到仓库外前缀成功，安装产物 `schema --json` 报 2.0.0 且含 `bridge web`，用同一隔离目录仍为 `logged_in:true`。`npm test` 与 `test/bridge/e2e/run.mjs readonly` 在本机 sandbox 内因内部 `spawn(stdio:'pipe')` 返回 EPERM 而无法完成（已用真实安装前缀与真实登录态复现，失败点在子进程创建而非凭证），因此仓库 E2E 套件仍未取得通过结果。未执行任何 B 站写操作，未宣称 Issue #26 完成。
+
 - bridge 回复策略改为可配置：`BILIBILI_BRIDGE_REPLY_POLICY=off|owner|draft`（默认 `owner`，
   白名单主人直回、数量不限；非白名单对端在 adapter 入口拒绝；`draft` 写入与 state 文件同名的
   `<state 文件名>.drafts.jsonl`（0600）供审阅、不投递）。
@@ -21,6 +34,8 @@
   并在帧上新增 `source:{platform,surface,untrusted:true}`。做法对齐 cc-connect 的 `injectSender`，
   只说明来源与不可信，不写人设或回复规则；本地 pending 与去重仍保存原文。自定义人物仍由
   cc-connect 的 `system_prompt`/`append_system_prompt` 负责。
+- 新增可选套件 `test/compat/`（`npm run test:compat`，**不参与默认 `npm test`**）：Node/npm 版本兼容矩阵。每个组合走真实交付路径——`npm pack` 发布目录 → `npm install -g --prefix <隔离前缀>` → PATH 调 `bilibili --version`/`doctor`/`schema`/`skills list` → `npm exec --package <tarball>`；断言只写在 `test/compat/lib/combo.mjs`，容器入口复用同一份，不另立标准。`--check` 只做静态校验（含「默认 `npm test` 未被改动」门禁），`--docker` 用 `node:22`/`node:24` 镜像覆盖 Node 主版本。默认 native 矩阵为 npm `current,9,10,11`；`--node` 低于 `engines.node` 的组合显式跳过并计入失败，不算通过。
+  验证记录（2026-10-26，本机 Windows x64 / Node v24.1.0）：`--check` 与 `test/release/run.mjs --check` 均 exit 0；`test/compat/run.mjs --npm current,9,10,11` exit 0，4 个组合全通过（npm 11.3.0 / 9.9.4 / 10.9.9 / 11.21.1，每组 7 项检查、tarball 41 个文件）。Docker 路径本轮未取得证据：本机 Docker daemon 未运行，`--docker` 按设计返回 `status=unavailable`（exit 2），Node 22/24 组合尚未验证。
 
 ## 2.0.0 — 2026-10-22
 

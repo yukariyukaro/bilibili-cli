@@ -14,6 +14,20 @@ const output = join(temp, '发布')
 const prefix = join(temp, '安装 前缀')
 const state = join(temp, '隔离状态')
 const sourceManifest = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'))
+
+// 依赖版本断言只锁主版本：补丁与次版本可以跟随上游发布（例如 17.4.x → 17.5.0），
+// 否则每次上游发版都要改测试，等于用写死的版本号冒充兼容性检查。
+const LIBRARY = '@yukariyukaro/bilibili-api-ts'
+const declaredLibraryRange = sourceManifest.dependencies?.[LIBRARY] ?? ''
+const declaredLibraryMajor = /^\^?(\d+)\./.exec(declaredLibraryRange)?.[1]
+assert.ok(declaredLibraryMajor, `package.json 必须声明 ${LIBRARY} 依赖（形如 ^X.Y.Z），当前为 "${declaredLibraryRange}"`)
+const assertLibraryMajor = (actual) => {
+  assert.equal(
+    String(actual).split('.')[0],
+    declaredLibraryMajor,
+    `${LIBRARY} 实际安装版本必须与声明的主版本一致（声明 ${declaredLibraryRange}，实际 ${actual}）`,
+  )
+}
 const env = { ...process.env, BILIBILI_SKILL_HOME: state, NODE_OPTIONS: '', NODE_PATH: '', npm_config_cache: join(temp, 'npm缓存'), npm_config_audit: 'false', npm_config_fund: 'false', npm_config_registry: 'https://registry.npmjs.org/' }
 let checks = 0
 const check = async (name, fn) => { await fn(); checks++; process.stdout.write(`通过：${name}\n`) }
@@ -81,7 +95,7 @@ const batch = (rows, status = 0) => {
 await check('生成独立 CLI 与纯文档技能，无运行时代码副本', () => {
   assert.equal(exec(process.execPath, [join(source, 'scripts', 'build.mjs'), output]).status, 0)
   assert.deepEqual(readdirSync(skillRoot).sort(), ['SKILL.md', 'references'], 'skills add 目标只应包含 Skill 文档')
-  assert.equal(readdirSync(join(skillRoot, 'references')).sort().join(','), 'bridge.md,cli-contract.md,skill-upgrade.md')
+  assert.equal(readdirSync(join(skillRoot, 'references')).sort().join(','), 'bridge.md,cli-contract.md,skill-upgrade.md,test-account-setup.md')
   assert.equal(readFileSync(join(output, 'SKILL.md'), 'utf8'), readFileSync(join(skillRoot, 'SKILL.md'), 'utf8'))
   assert.equal(existsSync(join(output, 'skill')), false, '发布目录不再生成不会进入 tarball 的 skill/ 副本')
   assert.equal(existsSync(join(output, 'scripts')), false)
@@ -229,7 +243,7 @@ await check('npm exec 在仓库外隔离目录直接运行已构建 tarball，�
 await check('真实分组帮助、schema 和技能发现均无用户状态副作用', () => {
   const schema = json(['schema']).result
   const originalNames = ['auth login start', 'auth login poll', 'auth status', 'video search', 'video info', 'video subtitle', 'video hot', 'comment list', 'comment thread', 'comment create', 'comment delete', 'user info', 'user relation', 'inbox', 'dm status', 'dm read', 'dm send', 'config get', 'config set', 'doctor', 'schema', 'skills list', 'skills read']
-  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, 'bridge run', 'bridge status', 'bridge stop'].sort())
+  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, 'bridge run', 'bridge web', 'bridge status', 'bridge stop'].sort())
   assert.equal(schema.version, sourceManifest.version)
   const legacyContract = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'commands-1.0.0.json'), 'utf8'))
   assert.deepEqual(schema.commands.filter((c) => originalNames.includes(c.name)), legacyContract, '原23命令的字段、顺序、描述、默认值与枚举必须保持兼容')
@@ -258,8 +272,8 @@ await check('真实分组帮助、schema 和技能发现均无用户状态副作
   assert.equal(existsSync(state), false)
   const doctor = json(['doctor']).result
   assert.equal(doctor.dependenciesInstalled, true)
-  assert.equal(doctor.library, '@yukariyukaro/bilibili-api-ts')
-  assert.match(String(doctor.libraryVersion), /^17\.4\./)
+  assert.equal(doctor.library, LIBRARY)
+  assertLibraryMajor(doctor.libraryVersion)
   assert.equal(doctor.skill.docVersion, sourceManifest.version)
   assert.equal(doctor.skill.requiresCli, sourceManifest.version.split('.').slice(0, 2).join('.'))
   assert.equal(doctor.skill.matchesCli, true)
@@ -443,8 +457,8 @@ if (process.env.BILIBILI_E2E_READONLY === '1' || process.env.BILIBILI_E2E === '1
       }
       const doctor = run(['doctor', '--json'])
       assert.equal(doctor.dependenciesInstalled, true, '请先安装 npm 依赖')
-      assert.equal(doctor.library, '@yukariyukaro/bilibili-api-ts')
-      assert.match(String(doctor.libraryVersion), /^17\.4\./)
+      assert.equal(doctor.library, LIBRARY)
+      assertLibraryMajor(doctor.libraryVersion)
       run(['auth', 'status', '--json'])
       run(['video', 'hot', '--num', '1', '--json'])
       run(['video', 'search', '--keyword', 'B站', '--num', '1', '--json'], 1)

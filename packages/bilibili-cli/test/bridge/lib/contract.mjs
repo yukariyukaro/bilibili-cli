@@ -27,10 +27,10 @@ export const LEGACY_COMMANDS = [
   'skills read',
 ]
 
-export const BRIDGE_COMMANDS = ['bridge run', 'bridge status', 'bridge stop']
+export const BRIDGE_COMMANDS = ['bridge run', 'bridge web', 'bridge status', 'bridge stop']
 export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS]
 
-export const BRIDGE_RUN_FIELDS = ['ownerUids', 'pollMs', 'statePath', 'url']
+export const BRIDGE_RUN_FIELDS = ['configPath', 'ownerUids', 'pollMs', 'statePath', 'url']
 export const BRIDGE_STATE_FIELDS = ['statePath']
 
 export function commandByName(schema, name) {
@@ -41,7 +41,7 @@ export function commandByName(schema, name) {
 
 /**
  * 统一断言命令/帮助/schema/JSONL 共用同一份契约。
- * 旧 23 个命令的字段默认值/枚举/必填保持不变；新增 3 个 bridge 命令按契约。
+ * 旧 23 个命令的字段默认值/枚举/必填保持不变；新增 4 个 bridge 命令按契约。
  */
 export function assertSchemaContract(schema, { version } = {}) {
   assert.equal(schema.schemaVersion, 1, 'schemaVersion 必须保持 1')
@@ -49,16 +49,17 @@ export function assertSchemaContract(schema, { version } = {}) {
   assert.deepEqual(
     schema.commands.map((entry) => entry.name).sort(),
     [...ALL_COMMANDS].sort(),
-    'schema 命令集合必须等于旧23个 + bridge三条；skills cleanup 已迁出公开 CLI',
+    'schema 命令集合必须等于旧23个 + bridge四条；skills cleanup 已迁出公开 CLI',
   )
 
   const run = commandByName(schema, 'bridge run')
-  assert.equal(run.stream, true, 'bridge run 必须是唯一 stream 命令')
+  assert.equal(run.stream, true, 'bridge run 必须是长期 stream 命令')
   assert.deepEqual(Object.keys(run.fields).sort(), BRIDGE_RUN_FIELDS, 'bridge run 字段契约')
   assert.equal(run.fields.ownerUids.type, 'string')
   assert.equal(run.fields.ownerUids.required, undefined, 'ownerUids 可由 BILIBILI_OWNER_UID 环境变量提供，不强制 CLI 必填')
   assert.equal(run.fields.statePath.type, 'string')
   assert.equal(run.fields.url.type, 'string')
+  assert.equal(run.fields.configPath.type, 'string')
   assert.equal(run.fields.pollMs.type, 'integer')
   assert.equal(run.fields.pollMs.minimum, 6000)
   assert.equal(run.fields.pollMs.default, 6000)
@@ -67,6 +68,10 @@ export function assertSchemaContract(schema, { version } = {}) {
   assert.equal(run.fields.ownerUids.env, 'BILIBILI_OWNER_UID')
   assert.equal(run.fields.url.env, 'CC_CONNECT_BRIDGE_URL')
   assert.equal(Object.hasOwn(run.fields, 'token'), false, 'token 只能走 CC_CONNECT_BRIDGE_TOKEN 环境变量，不能出现在 schema/argv')
+
+  const web = commandByName(schema, 'bridge web')
+  assert.equal(web.stream, true, 'bridge web 是受控的本地长期服务')
+  assert.deepEqual(Object.keys(web.fields).sort(), ['configPath', 'port', 'statePath'])
 
   for (const name of ['bridge status', 'bridge stop']) {
     const command = commandByName(schema, name)
@@ -77,7 +82,7 @@ export function assertSchemaContract(schema, { version } = {}) {
   }
 
   for (const entry of schema.commands) {
-    if (entry.name !== 'bridge run') assert.notEqual(entry.stream, true, entry.name + ' 不应标记 stream')
+    if (!['bridge run', 'bridge web'].includes(entry.name)) assert.notEqual(entry.stream, true, entry.name + ' 不应标记 stream')
   }
 
   // 旧 23 个命令的字段契约显式回归（防止迁移顺手改默认值/枚举/必填）。

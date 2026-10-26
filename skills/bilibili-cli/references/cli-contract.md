@@ -1,6 +1,6 @@
 # CLI 契约
 
-本页是命令、参数、输出与状态语义的完整参考。写入或其他敏感操作前先读相关段落；Bridge 细节见 [Bridge 监听](bridge.md)，Skill 安装与清理见 [安装与升级](skill-upgrade.md)。
+本页用于查询命令参数、输出与授权语义。按当前任务阅读对应章节；长期监听与控制台见 [Bridge 监听](bridge.md)，Skill 更新见 [安装与升级](skill-upgrade.md)。
 
 ## 安装与运行
 
@@ -14,11 +14,11 @@ bilibili doctor --json
 
 仅在用户同意后执行全局安装；不得静默安装或升级。若用户不同意或环境无法安装，说明 CLI 依赖未满足并停止调用，不要自动切换到 npx，也不要使用源码脚本冒充已安装 CLI。只使用官方包名 `@yukariyukaro/bilibili-cli`。Skill 更新与 CLI 更新相互独立；更新 CLI 前先取得用户同意，更新后重新核验版本与依赖。`npx skills add/update/remove` 只管理 Skill 文件，不是 CLI 的运行方式。
 
-2.0.0 起 `doctor` 与 `skills list` 同时报告 CLI 版本和 Skill 文档版本。文档版本来自 SKILL.md frontmatter 的 `metadata.version`；`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。下文示例均使用 `bilibili <命令> [参数]`。包的 `files` 为 `dist`、`cli`、`SKILL.md`、`references`、`README.md`、`LICENSE`、`CHANGELOG.md`，不含源码、测试或 TypeScript 工具链。
+`doctor` 与 `skills list` 报告 CLI 及其随包文档的版本；另行安装的 Skill 需检查实际加载文件。`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。下文示例均使用 `bilibili <命令> [参数]`。
 
-1.1.0 相对 1.0.0 兼容新增 `bridge` 等命令，保留原有 23 条命令；2.0.0 移除公开的 `skills cleanup`（改由维护脚本执行），增加 Skill 文档版本字段，bridge 改为自举当前 CLI 入口。只使用 `bilibili` 分组命令；不注册 bili、dsh-bili-scroll 别名，不支持旧 setup、whoami、search、reply、delete、agent 和 action/params 别名。仓库只包含这一个 CLI 产品源码，不包含插件宿主、MCP 服务或第二份入口。
+只使用下列 `bilibili` 分组命令，不调用旧别名、内部后端入口或未公开命令。
 
-npm 包名为 `@yukariyukaro/bilibili-cli`；Skill 名仍是 `bilibili-cli`（`skills list/read` 不变），命令名为 `bilibili`。无 scope 的同名 npm 包不是本项目。版本是否可用以公共 registry 和 `bilibili --version` 为准；npm 发布与 Git 推送是独立动作。
+npm 包名为 `@yukariyukaro/bilibili-cli`，Skill 名为 `bilibili-cli`，命令名为 `bilibili`。无 scope 的同名 npm 包不是本项目。
 
 B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-python 17.4.1 的移植），随包安装，不启动 Python、uv 或后端子进程。登录二维码由 `qrcode` 依赖在进程内生成 PNG。
 
@@ -44,10 +44,13 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 | doctor | 报告 Node、状态目录、凭证存在性、API 包实际版本与 Skill 文档版本（skill.docVersion / requiresCli / matchesCli） |
 | schema | 返回与命令注册共用的完整参数契约 |
 | skills list / skills read | list 分别返回 cliVersion、docVersion、docPath、requiresCli、matchesCli；read 可选 --name bilibili-cli，并返回 docVersion/docPath |
-| bridge run | 独立长期事件流；可选 --state-path、--owner-uids、--url、--poll-ms（最小 6000）；token 仅通过环境配置 |
+| bridge run | 独立长期事件流；可选 --state-path、--config-path、--owner-uids、--url、--poll-ms（最小 6000）；token 仅通过环境配置 |
+| bridge web | 本机长期控制台，仅监听 127.0.0.1；可选 --port、--config-path、--state-path；Bearer token 只在启动链接片段中一次性显示 |
 | bridge status / bridge stop | 有限请求；可选 --state-path，与 run 使用同一状态路径 |
 
 `schema --json` 对 `bridge run` 的 `pollMs` 标注 `default:6000`、`defaultSource:"env"` 与 `env:"BILIBILI_POLL_MS"`；`ownerUids` 与 `url` 分别标注 `BILIBILI_OWNER_UID`、`CC_CONNECT_BRIDGE_URL`。这些默认值只在未显式传参时由环境变量回退，不是字面量默认值。
+
+`bridge web` 的 `--port` 默认 9820（可传 0 让操作系统分配临时端口），`--config-path` 默认是 bridge 状态文件同目录的 `console.json`，`--state-path` 沿用 bridge 的状态路径解析：显式参数 > `BILIBILI_BRIDGE_STATE` > 账号状态目录 `bridge/state.json`。启动时 stdout 输出一次不带版本化 envelope 的 `console_ready` JSON，其中包含带访问 token 的本机 URL、配置路径和 PID；token 不放进 argv、schema 或 API 状态。
 
 `auth status --json` 的 result 为 `{logged_in, credentialPresent, stateDir, uid?, username?, message}`。`credentialPresent` 只表示状态目录里有可解析的凭证文件，`logged_in` 才代表 B 站接口可用；没有凭证时两者都为 false，凭证过期或网络不可用时 `credentialPresent:true`、`logged_in:false`。需要登录的命令（`video info`/`video subtitle`、`comment list`/`comment thread`/`comment create`/`comment delete`、`user info`/`user relation`、`inbox`、`dm *`）在没有凭证时返回 `AUTH` 退出码 3；`video search`、`video hot`、`schema`、`skills`、`doctor`、`auth login` 不需要已有登录态。
 
@@ -67,7 +70,7 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 
 仅首行容许 BOM；单行最多 65536 字节，超长行丢弃并报错，下一行继续。每行失败独立隔离，总退出码取最高错误码，必须检查每行 `ok`。输出逐行，不提供并发保证或任意后端命令调用。
 
-JSONL 不放大写权限：每条写请求仍需针对本次目标与正文的授权，并带严格布尔 `confirm:true`；一批写请求不能共享一次笼统授权。某条写操作为失败或未知状态时，不得在同一批或后续调用中自动重发。`bridge run` 是长期事件流，不接受放进 JSONL；尝试时返回 `STREAM_ONLY`（退出码 2），后续行仍按规则处理。
+JSONL 不放大写权限：每条写请求仍需针对本次目标与正文的授权，并带严格布尔 `confirm:true`；一批写请求不能共享一次笼统授权。某条写操作为失败或未知状态时，不得在同一批或后续调用中自动重发。`bridge run` 与 `bridge web` 都是长期运行命令，不接受放进 JSONL；尝试时返回 `STREAM_ONLY`（退出码 2），后续行仍按规则处理。两者启动后向 stdout 输出生命周期/就绪 JSON 行并持续运行，不是普通 JSON 请求响应。`bridge web` 的控制台页面另以 HTTP 轮询读取状态。
 
 ## 写入授权、审计与未知状态
 
@@ -83,20 +86,19 @@ JSONL 不放大写权限：每条写请求仍需针对本次目标与正文的�
 
 凭证不读取、不打印、不概述、不复制、不迁移，不从 DSH 或浏览器导入。bridge token 仅从环境变量获取，不进入 argv、schema、状态输出或正文。
 
-## 旧 Skill 清理（维护者）
-
-`skills cleanup` 已从公开 CLI 移除：它属于分发维护，不属于 B 站内容命令，也不随 npm 包发布。确认旧副本不受安装器管理后，在构建过的仓库中显式运行：
-
-```bash
-node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "/绝对路径/旧副本/bilibili-cli" --json
-node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "/绝对路径/旧副本/bilibili-cli" --confirm --json
-```
-
-默认零副作用 preview，显式 confirm 才同级 rename 备份；拒绝时 `SKILL_CLEANUP_REFUSED`、exit 2。仅支持已知 Git 历史快照的完整清单与字节 SHA256，拒绝自定义/凭证/依赖/链接、canonical、skill lock 和正在运行的包。该动作不是 B 站业务写权限，不借用 `writesEnabled`。npx 受管理的安装应使用官方 `npx skills remove`；脚本不自动执行。详见 [安装、升级和回滚](skill-upgrade.md)。
-
 ## Bridge 子系统
 
-`bilibili bridge run` 以独立进程前台运行并输出生命周期 JSONL（registered/ready/error/stopped）；`status` 与 `stop` 返回普通版本化信封，可用于 JSONL。run 需要 `CC_CONNECT_BRIDGE_TOKEN` 与 `BILIBILI_OWNER_UID`，可选 `CC_CONNECT_BRIDGE_URL`；三种命令可用 `--state-path` 隔离实例。bridge 默认用当前 node 可执行文件 + 包内 `dist/cli/bili.mjs` 自举子进程，不再要求 PATH 上存在同名 `bilibili` 命令；安装形态变化不影响启动。当前仅外接 cc-connect 的私信文本通道；回复策略由 `BILIBILI_BRIDGE_REPLY_POLICY` 控制（默认 `owner`：仅白名单主人直回，`off` 可关闭），真实发送仍经过原有校验、互关、收件人锁定、写开关及审计，未知状态不重发。完整前置条件、生命周期与限制见 [Bridge 监听](bridge.md)。
+`bilibili bridge run` 以独立进程前台运行并输出生命周期 JSONL（registered/ready/error/stopped）；`status` 与 `stop` 返回普通版本化信封，可用于 JSONL。run 需要 `CC_CONNECT_BRIDGE_TOKEN` 与主人 UID；可选 `CC_CONNECT_BRIDGE_URL`；三种命令可用 `--state-path` 隔离实例。bridge 默认用当前 node 可执行文件 + 包内 `dist/cli/bili.mjs` 自举子进程，不再要求 PATH 上存在同名 `bilibili` 命令；安装形态变化不影响启动。除私信通道外，Web 配置还可触发本地视频列表与评论读取。run 默认尝试附带本机控制台，可用 `BILIBILI_CONSOLE_DISABLE=1` 禁用。独立 run 未配置时回复策略默认为 `owner`，Web 配置默认为 `off`。当前 `owner` 策略会自动放行并由 adapter 传入 `confirm:true`，不是逐次人工确认；本 Skill 使用 `off` / `draft` 并保持 dry-run，不启用自动实发。详见 [数据与写入边界](bridge.md#数据与写入边界)。
+
+`bilibili bridge web` 启动仅绑定 `127.0.0.1` 的本机控制台，并通过 Bearer 访问令牌保护 `/api/state`、`/api/config`、`/api/control`；页面 token 从启动输出 URL 的 hash 读取并存入当前浏览器 sessionStorage，服务端不把 token 写入状态响应。浏览器前端不是事件流：它按约 5 秒轮询 `GET /api/state`，控制操作与保存配置分别使用 `POST /api/control` 与带 revision 的 `PUT /api/config`。
+
+web 配置文件由严格版本 1 schema 校验，默认写入状态目录旁的 `console.json`（0600）；保存采用 revision 乐观并发检查，配置冲突返回 409。控制台保存后不会自动启停 bridge；连接、轮询、回复限制在下次 bridge 启动时生效。
+
+托管 bridge 子进程的运行时优先级为：显式 `bridge run` 参数 > 环境变量 > web 配置文件 > 内置默认值；但 `CC_CONNECT_BRIDGE_TOKEN` 始终只来自环境且无配置文件/CLI flag 兜底。具体为：owner UID 使用 `--owner-uids` > `BILIBILI_OWNER_UID` > `connection.ownerUids`；WebSocket URL 使用 `--url` > `CC_CONNECT_BRIDGE_URL` > `connection.url` > `ws://127.0.0.1:9810/bridge/ws`；轮询间隔使用 `--poll-ms` > `BILIBILI_POLL_MS` > `connection.pollMs` > 6000；maxPolls/maxReplies 使用对应 `BILIBILI_BRIDGE_MAX_POLLS`/`BILIBILI_BRIDGE_MAX_REPLIES` > 配置文件；回复策略和上限使用 `BILIBILI_BRIDGE_REPLY_POLICY`/`BILIBILI_BRIDGE_REPLY_MAX` > 配置文件 > 默认（策略为 owner，上限为 300）。
+
+刷视频配置会驱动 bridge 本地读取视频列表与评论；当前本地循环不保证读取字幕、应用自定义 Agent 提示或生成报告。回复与评论策略可能触发自动放行，不只是文本偏好。通知配置不会由控制台直接发送。配置本身不代表用户对准确目标与最终正文的本次确认；需要真实写入时走主文档的单次确认流程，不以自动策略替代授权。
+
+控制台的“任务已交给 Agent”/`task_sent` 只表示任务帧已写入 bridge 子进程管道，不代表 Agent 已执行、B 站接口已受理、消息已送达或任务完成。任务派发失败或结果未知不会自动重试；定时任务先写入当天 claim journal，派发失败当日也不自动重试。完整前置条件、生命周期与限制见 [Bridge 监听](bridge.md)。
 
 ## 超时与错误
 

@@ -21,7 +21,7 @@
 | 消息 | `inbox --kind reply\|like\|at`、`dm status`、`dm read`、`dm send` |
 | 配置与诊断 | `config get`、`config set`、`doctor`、`schema` |
 | 技能 | `skills list`、`skills read`（分别报告 CLI 版本与 Skill 文档版本） |
-| 监听 | `bridge run`、`bridge status`、`bridge stop` |
+| 监听 | `bridge run`、`bridge web`、`bridge status`、`bridge stop` |
 
 参数、默认值、输出信封、退出码与 JSONL 规则见 [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)。
 
@@ -101,7 +101,15 @@ npm publish "<生成的 tarball 绝对路径>" --access public --registry=https:
 
 ## Bridge
 
-一次安装即可使用 `bilibili bridge run/status/stop`：
+本机控制台只监听 `127.0.0.1`，访问需要令牌。首次启动会在终端输出一次性入口；令牌从 URL 片段读取后立即清除，只保存在当前标签页会话。控制台关闭不等于停止服务。控制台现在随 `bilibili bridge run` 自动启动（`BILIBILI_CONSOLE_PORT` 改端口、`BILIBILI_CONSOLE_DISABLE=1` 关闭）；端口被占用只记日志，不影响私信监听。控制台不保存 token，也不托管 Agent 引擎。连接、轮询、回复上限、刷视频与评论偏好、每日时区/日期、通知渠道和 Agent 任务指令保存在 bridge 配置文件中，连接/回复上限在 bridge 下次启动时生效。Agent 任务发送不会自动发布评论或私信；真实写入仍需 CLI 写开关、逐次确认和审计。
+
+启动方式：
+
+```bash
+bilibili bridge web
+```
+
+一次安装即可使用 `bilibili bridge web` 管理本地任务配置；独立监听仍可用 `bilibili bridge run/status/stop`：
 
 ```powershell
 # PowerShell：token 只放环境变量，不写入命令行或正文

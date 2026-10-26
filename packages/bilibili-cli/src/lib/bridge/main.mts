@@ -9,6 +9,9 @@ import { checkStopRequest, clearOwnStopRequest } from './control-plane.mjs'
 import { errorCode, errorMessage, isPlainObject, isPositiveIntegerString } from './guards.mjs'
 import { acquireInstanceLock, createStateStore, type InstanceLock, type StateStore } from './state.mjs'
 import { resolveBridgeStatePath } from './state-path.mjs'
+import { ConsoleError, buildScrollTask, readConsoleConfig, type ConsoleConfig } from './web-config.mjs'
+import { createConsoleServer } from './web-server.mjs'
+import { ConsoleSupervisor, type ConsoleStatus } from './web-supervisor.mjs'
 import type { BilibiliDmBackend, BridgeLogger, BridgeState } from './types.mjs'
 
 const DEFAULT_POLL_MS = 6000
@@ -19,6 +22,7 @@ const STOP_CHECK_INTERVAL_MS = 250
 
 export interface BridgeRunArgs {
   statePath?: string
+  configPath?: string
   ownerUids?: string
   url?: string
   pollMs?: number
@@ -95,15 +99,32 @@ interface BridgeConfig {
   token: string
   ownerUids: string[]
   pollMs: number
+  maxPolls: number
+  maxReplies: number
+  replyPolicy: 'off' | 'owner' | 'draft'
+  replyMax: number
   url: string
   statePath: string
+  commentPolicy: 'off' | 'owner' | 'draft'
+  commentMaxReplies: number
+  scroll: { source: 'hot' | 'search'; keywords: string; numVideos: number; commentsPerVideo: number; preferTags: string; avoidTags: string; style: string }
 }
 
 function configError(message: string, cause?: unknown): LifecycleError {
   return new LifecycleError('CONFIG', 'config', message, cause)
 }
 
-function readConfig(args: BridgeRunArgs): BridgeConfig {
+async function readConfig(args: BridgeRunArgs): Promise<BridgeConfig> {
+  let consoleConfig: ConsoleConfig | undefined
+  if (args.configPath !== undefined) {
+    if (typeof args.configPath !== 'string' || !args.configPath.trim()) throw configError('configPath 必须是非空字符串')
+    try {
+      consoleConfig = await readConsoleConfig(args.configPath)
+    } catch (error) {
+      throw configError('无法读取控制台配置', error)
+    }
+  }
+
   const token = process.env.CC_CONNECT_BRIDGE_TOKEN
   if (typeof token !== 'string' || token.length === 0) {
     throw configError('缺少 CC_CONNECT_BRIDGE_TOKEN')
@@ -112,7 +133,14 @@ function readConfig(args: BridgeRunArgs): BridgeConfig {
   if (args.ownerUids !== undefined && typeof args.ownerUids !== 'string') {
     throw configError('ownerUids 必须是逗号分隔的字符串')
   }
-  const ownerRaw = typeof args.ownerUids === 'string' ? args.ownerUids : process.env.BILIBILI_OWNER_UID ?? ''
+  const configuredOwners = consoleConfig?.connection?.ownerUids
+  const ownerRaw = typeof args.ownerUids === 'string'
+    ? args.ownerUids
+    : process.env.BILIBILI_OWNER_UID !== undefined
+      ? process.env.BILIBILI_OWNER_UID
+      : Array.isArray(configuredOwners)
+        ? configuredOwners.join(',')
+        : ''
   const ownerUids = ownerRaw
     .split(',')
     .map((value) => value.trim())
@@ -126,14 +154,38 @@ function readConfig(args: BridgeRunArgs): BridgeConfig {
   if (args.pollMs !== undefined && typeof args.pollMs !== 'number') {
     throw configError('pollMs 必须是整数')
   }
-  const pollRaw = args.pollMs ?? process.env.BILIBILI_POLL_MS ?? DEFAULT_POLL_MS
+  const configuredPoll = consoleConfig?.connection?.pollMs
+  const pollRaw = args.pollMs ?? (process.env.BILIBILI_POLL_MS !== undefined
+    ? process.env.BILIBILI_POLL_MS
+    : configuredPoll ?? DEFAULT_POLL_MS)
   const pollMs = typeof pollRaw === 'number' ? pollRaw : Number(pollRaw)
   if (!Number.isSafeInteger(pollMs) || pollMs < MIN_POLL_MS || pollMs > MAX_TIMER_MS) {
     throw configError('BILIBILI_POLL_MS 必须是不小于 6000 且不大于 2147483647 的整数')
   }
 
+  const readLimit = (value: unknown, label: string): number => {
+    if (value === undefined) return 0
+    const parsed = typeof value === 'number' ? value : Number(value)
+    if (!Number.isSafeInteger(parsed) || parsed < 0) throw configError(label + ' 必须是不小于 0 的整数')
+    return parsed
+  }
+  const maxPolls = readLimit(
+    process.env.BILIBILI_BRIDGE_MAX_POLLS !== undefined
+      ? process.env.BILIBILI_BRIDGE_MAX_POLLS
+      : consoleConfig?.connection?.maxPolls,
+    'maxPolls',
+  )
+  const maxReplies = readLimit(
+    process.env.BILIBILI_BRIDGE_MAX_REPLIES !== undefined
+      ? process.env.BILIBILI_BRIDGE_MAX_REPLIES
+      : consoleConfig?.reply?.maxReplies,
+    'maxReplies',
+  )
+
   if (args.url !== undefined && typeof args.url !== 'string') throw configError('url 必须是字符串')
-  const url = args.url ?? process.env.CC_CONNECT_BRIDGE_URL ?? DEFAULT_URL
+  const url = args.url ?? (process.env.CC_CONNECT_BRIDGE_URL !== undefined
+    ? process.env.CC_CONNECT_BRIDGE_URL
+    : consoleConfig?.connection?.url ?? DEFAULT_URL)
   let parsedUrl: URL
   try {
     parsedUrl = new URL(url)
@@ -149,11 +201,36 @@ function readConfig(args: BridgeRunArgs): BridgeConfig {
   }
   const statePath = resolveBridgeStatePath(args.statePath)
 
+  const configuredPolicy = consoleConfig?.reply?.policy
+  const replyPolicyRaw = process.env.BILIBILI_BRIDGE_REPLY_POLICY ?? configuredPolicy ?? 'owner'
+  if (!['off', 'owner', 'draft'].includes(replyPolicyRaw)) {
+    throw configError('BILIBILI_BRIDGE_REPLY_POLICY 只接受 off / owner / draft')
+  }
+  const replyMaxRaw = process.env.BILIBILI_BRIDGE_REPLY_MAX ?? consoleConfig?.reply?.maxLength
+  const replyMax = replyMaxRaw === undefined ? DEFAULT_REPLY_MAX : Number(replyMaxRaw)
+  if (!Number.isSafeInteger(replyMax) || replyMax < 1 || replyMax > MAX_TEXT) {
+    throw configError('BILIBILI_BRIDGE_REPLY_MAX 必须是 1–' + String(MAX_TEXT) + ' 的整数')
+  }
 
   return {
     token,
     ownerUids,
     pollMs,
+    maxPolls,
+    maxReplies,
+    commentPolicy: (consoleConfig?.reply?.commentPolicy ?? 'off') as BridgeConfig['commentPolicy'],
+    commentMaxReplies: Number.isSafeInteger(consoleConfig?.reply?.commentMaxReplies) ? Number(consoleConfig?.reply?.commentMaxReplies) : 0,
+    scroll: {
+      source: consoleConfig?.scroll?.source === 'search' ? 'search' : 'hot',
+      keywords: String(consoleConfig?.scroll?.keywords ?? ''),
+      numVideos: Number.isSafeInteger(consoleConfig?.scroll?.numVideos) ? Number(consoleConfig?.scroll?.numVideos) : 10,
+      commentsPerVideo: Number.isSafeInteger(consoleConfig?.scroll?.commentsPerVideo) ? Number(consoleConfig?.scroll?.commentsPerVideo) : 20,
+      preferTags: String(consoleConfig?.scroll?.preferTags ?? ''),
+      avoidTags: String(consoleConfig?.scroll?.avoidTags ?? ''),
+      style: String(consoleConfig?.reply?.style ?? ''),
+    },
+    replyPolicy: replyPolicyRaw as BridgeConfig['replyPolicy'],
+    replyMax,
     url,
     statePath,
   }
@@ -240,6 +317,25 @@ interface ErrorEvent {
   fatal: true
 }
 
+interface TaskSentEvent { type: 'task_sent'; id: string }
+
+interface ScrollDoneEvent {
+  type: 'scroll_done'
+  videos: number
+  offered: number
+  readFailures: number
+  sendFailures: number
+}
+
+interface RuntimeStatusEvent {
+  type: 'status'
+  registered: boolean
+  ready: boolean
+  paused: boolean
+  polls: number
+  replies: number
+}
+
 interface StoppedEvent {
   type: 'stopped'
   reason: string
@@ -247,7 +343,7 @@ interface StoppedEvent {
   code: number
 }
 
-type LifecycleEvent = RegisteredEvent | ReadyEvent | ErrorEvent | StoppedEvent
+type LifecycleEvent = RegisteredEvent | ReadyEvent | RuntimeStatusEvent | TaskSentEvent | ScrollDoneEvent | ErrorEvent | StoppedEvent
 
 interface SignalHandler {
   signal: NodeJS.Signals
@@ -272,6 +368,9 @@ export class BridgeRuntime {
 
   private pollerStarted = false
   private transportOnline = false
+  private userPaused = false
+  private statusTimer: ReturnType<typeof setInterval> | null = null
+  private consoleServer: Awaited<ReturnType<typeof createConsoleServer>> | null = null
   private registeredEmitted = false
   private readyEmitted = false
   private stopping = false
@@ -324,7 +423,7 @@ export class BridgeRuntime {
 
   private async initialize(): Promise<void> {
     this.installInputHandlers()
-    const config = readConfig(this.args)
+    const config = await readConfig(this.args)
     this.config = config
 
     const store = createStateStore(config.statePath)
@@ -332,19 +431,8 @@ export class BridgeRuntime {
     this.state = await store.load()
     this.instanceLock = await acquireInstanceLock(config.statePath, { logger: (message) => this.log(message) })
 
-    const replyPolicy = String(process.env.BILIBILI_BRIDGE_REPLY_POLICY ?? 'owner').toLowerCase()
-    if (!['off', 'owner', 'draft'].includes(replyPolicy)) {
-      throw configError('BILIBILI_BRIDGE_REPLY_POLICY 只接受 off / owner / draft')
-    }
-    const replyMaxRaw = process.env.BILIBILI_BRIDGE_REPLY_MAX
-    let replyMax = DEFAULT_REPLY_MAX
-    if (replyMaxRaw !== undefined) {
-      const parsedReplyMax = Number(replyMaxRaw)
-      if (!Number.isSafeInteger(parsedReplyMax) || parsedReplyMax < 1 || parsedReplyMax > MAX_TEXT) {
-        throw configError('BILIBILI_BRIDGE_REPLY_MAX 必须是 1–' + String(MAX_TEXT) + ' 的整数')
-      }
-      replyMax = parsedReplyMax
-    }
+    const replyPolicy = config.replyPolicy
+    const replyMax = config.replyMax
 
     this.gate = new PollGate()
     this.backend = new BilibiliCliBackend({
@@ -383,6 +471,24 @@ export class BridgeRuntime {
         return config.ownerUids.includes(String(uid))
       },
       replyMax,
+      maxPolls: config.maxPolls,
+      maxReplies: config.maxReplies,
+      commentMaxReplies: config.commentMaxReplies,
+      scroll: config.scroll,
+      // 评论写入与私信同权：off 一律拒绝，draft 只出草稿不投递，owner 需逐次确认回调放行。
+      confirmComment: async ({ bvid, text }) => {
+        if (config.commentPolicy === 'off') return false
+        if (config.commentPolicy === 'draft') {
+          const draftPath = join(dirname(config.statePath), basename(config.statePath) + '.comment-drafts.jsonl')
+          try {
+            mkdirSync(dirname(draftPath), { recursive: true })
+            appendFileSync(draftPath, JSON.stringify({ at: new Date().toISOString(), bvid, text: String(text ?? '') }) + '\n', { encoding: 'utf8', mode: 0o600 })
+          } catch { /* 草稿失败不改变策略 */ }
+          return false
+        }
+        // 真实写入开关由 CLI 的 comment create 校验；这里只做策略层放行。
+        return true
+      },
       logger: this.diagnostics,
     })
     this.adapter.onBaselineReady = () => {
@@ -390,6 +496,10 @@ export class BridgeRuntime {
     }
 
     this.startStopWatcher()
+    if (this.args.configPath) {
+      this.statusTimer = setInterval(() => { void this.emitStatus() }, 2000)
+      unrefTimer(this.statusTimer)
+    }
     this.connector = this.bridge.runForever({
       onConnected: async () => this.onConnected(),
       onDisconnected: async () => this.onDisconnected(),
@@ -399,6 +509,7 @@ export class BridgeRuntime {
       if (!this.stopping) this.fatal(toLifecycleError(error, 'bridge'))
     })
     this.startupPhase = false
+    await this.startConsole()
     this.log('启动完成，等待 register_ack')
   }
 
@@ -407,6 +518,7 @@ export class BridgeRuntime {
     this.stdin = stdin
     this.stdinErrorHandler = (error: Error) => this.log('stdin 读取失败: ' + errorMessage(error))
     stdin.on('line', (line) => this.handleStdinLine(line))
+    stdin.on('close', () => { if (this.args.configPath) this.requestStop('stdin_eof') })
     stdin.on('error', this.stdinErrorHandler)
 
     const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
@@ -472,11 +584,23 @@ export class BridgeRuntime {
       this.log('忽略无法解析的 stdin 指令')
       return
     }
-    if (isPlainObject(command) && command.type === 'stop') {
+    if (!isPlainObject(command)) return
+    if (command.type === 'stop') {
       this.log('收到 stdin stop')
       this.requestStop('stdin')
       return
     }
+    if (!this.args.configPath) { this.log('忽略未知 stdin 指令'); return }
+    if (command.type === 'control' && (command.action === 'pause' || command.action === 'resume')) {
+      this.userPaused = command.action === 'pause'
+      if (this.userPaused) this.pausePoller()
+      else if (this.transportOnline) this.resumePoller()
+      void this.emitStatus()
+      return
+    }
+    if (command.type === 'status') { void this.emitStatus(); return }
+    if (command.type === 'task') { void this.handleTask(command); return }
+    if (command.type === 'scroll') { void this.handleScroll(command); return }
     this.log('忽略未知 stdin 指令')
   }
 
@@ -516,6 +640,158 @@ export class BridgeRuntime {
         rejectWrite(error)
       }
     })
+  }
+
+  /** 控制台随 bridge 启动；失败（例如端口占用）只记日志，不影响私信监听。 */
+  private async startConsole(): Promise<void> {
+    if (process.env.BILIBILI_CONSOLE_DISABLE === '1') return
+    const statePath = this.config?.statePath
+    if (!statePath) return
+    const portRaw = process.env.BILIBILI_CONSOLE_PORT
+    const port = portRaw === undefined ? 9820 : Number(portRaw)
+    if (!Number.isSafeInteger(port) || port < 0 || port > 65535) {
+      this.log('控制台端口无效，跳过启动')
+      return
+    }
+    try {
+      const configPath = this.args.configPath ?? join(dirname(statePath), 'console.json')
+      const supervisor = new ConsoleSupervisor(configPath, statePath, process.env, {
+        status: () => this.consoleStatus(),
+        control: (action: string) => this.consoleControl(action),
+      })
+      this.consoleServer = await createConsoleServer({ port, configPath, statePath }, process.env, supervisor)
+      process.stdout.write(JSON.stringify({
+        type: 'console_ready',
+        url: this.consoleServer.origin + '/#token=' + encodeURIComponent(this.consoleServer.token),
+        configPath,
+        pid: process.pid,
+      }) + '\n')
+    } catch (error) {
+      this.log('控制台未启动（不影响 bridge）：' + errorMessage(error))
+    }
+  }
+
+  private consoleStatus(): ConsoleStatus {
+    const status = this.adapter?.getStatus()
+    const phase = this.stopping
+      ? 'stopping'
+      : this.transportOnline
+        ? (this.baselineReady() ? 'ready' : 'registered')
+        : 'connecting'
+    return {
+      running: !this.stopping,
+      phase,
+      paused: this.userPaused || status?.paused === true,
+      registered: this.bridge?.isRegistered() === true,
+      ready: this.baselineReady(),
+      pid: process.pid,
+      polls: status?.polls ?? 0,
+      replies: status?.replies ?? 0,
+      lastRunAt: null,
+    }
+  }
+
+  private async consoleControl(action: string): Promise<void> {
+    if (action === 'pause') {
+      this.userPaused = true
+      this.pausePoller()
+      return
+    }
+    if (action === 'resume') {
+      this.userPaused = false
+      this.resumePoller(true)
+      return
+    }
+    if (action === 'run-now') {
+      // 进程内触发同样要带控制台配置的任务指令与会话标识；没有 --config-path 时按无配置执行。
+      let task: { prompt: string; sessionKey: string } | undefined
+      if (this.args.configPath) {
+        try {
+          const consoleConfig = await readConsoleConfig(this.args.configPath)
+          task = { prompt: buildScrollTask(consoleConfig), sessionKey: consoleConfig.agent.sessionKey }
+        } catch {
+          this.log('无法读取控制台配置，本次刷视频不带任务指令')
+        }
+      }
+      await this.handleScroll(task)
+      return
+    }
+    if (action === 'stop') {
+      this.requestStop('console')
+      return
+    }
+    if (action === 'start') {
+      // bridge 已在运行；重复 start 是显式 no-op，避免控制台把自身停掉再拉起。
+      return
+    }
+    throw new ConsoleError('ACTION', '未知控制动作', 400)
+  }
+
+  private async emitStatus(): Promise<void> {
+    if (!this.args.configPath || this.stopping || !this.config) return
+    const status = this.adapter?.getStatus()
+    try {
+      await this.emit({
+        type: 'status',
+        registered: this.bridge?.isRegistered() === true,
+        ready: this.baselineReady(),
+        paused: this.userPaused || status?.paused === true,
+        polls: status?.polls ?? 0,
+        replies: status?.replies ?? 0,
+      })
+    } catch { this.log('无法写出 status 事件') }
+  }
+
+  private async handleScroll(command?: Record<string, unknown>): Promise<void> {
+    if (!this.adapter) return
+    if (!this.bridge?.isRegistered()) {
+      this.log('bridge 未注册，拒绝刷视频循环')
+      return
+    }
+    // 控制台/进程内都只把「任务指令」当偏好文本转交 agent，不构成写授权。
+    const prompt = typeof command?.prompt === 'string' && command.prompt.trim() ? command.prompt : undefined
+    const sessionKey = typeof command?.sessionKey === 'string' && /^[a-zA-Z0-9:_-]{1,160}$/u.test(command.sessionKey)
+      ? command.sessionKey
+      : undefined
+    try {
+      const summary = await this.adapter.runScrollCycle({ prompt, sessionKey })
+      this.log('刷视频循环完成 videos=' + String(summary.videos) + ' offered=' + String(summary.offered))
+      await this.emit({ type: 'scroll_done', ...summary })
+    } catch (error) {
+      this.log('刷视频循环失败：' + errorMessage(error))
+    }
+  }
+
+  private async handleTask(command: Record<string, unknown>): Promise<void> {
+    const id = command.id
+    const sessionKey = command.sessionKey
+    const uid = command.uid
+    const prompt = command.prompt
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9:_-]{1,160}$/u.test(id) ||
+        typeof sessionKey !== 'string' || !/^[a-zA-Z0-9:_-]{1,160}$/u.test(sessionKey) ||
+        typeof uid !== 'string' || !isPositiveIntegerString(uid) ||
+        typeof prompt !== 'string' || !prompt.trim() || prompt.length > 16000) {
+      this.log('拒绝无效的本地任务指令')
+      return
+    }
+    if (!this.config?.ownerUids.includes(uid)) {
+      this.log('拒绝主人白名单以外的本地任务')
+      return
+    }
+    if (!this.bridge?.isRegistered()) {
+      this.log('bridge 未注册，拒绝派发本地任务')
+      return
+    }
+    try {
+      this.bridge.sendMessage({
+        id, uid, name: '主人', content: prompt, session_key: sessionKey,
+        reply_ctx: { kind: 'task', uid, task_id: id },
+      })
+      await this.emit({ type: 'task_sent', id })
+    } catch (error) {
+      // 发送结果不确定时不自动重试，不把远端异常或任务正文输出到日志。
+      this.log('本地任务派发失败或结果未知；未自动重试（' + (errorCode(error) ?? 'unknown') + '）')
+    }
   }
 
   private async emitRegistered(): Promise<void> {
@@ -598,10 +874,11 @@ export class BridgeRuntime {
     }
   }
 
-  private resumePoller(): void {
+  private resumePoller(resetPollLimit = true): void {
     if (!this.pollerStarted || !this.adapter) return
+    if (this.userPaused) return
     try {
-      this.adapter.resume()
+      this.adapter.resume({ resetPollLimit })
     } catch (error) {
       this.fatal(toLifecycleError(error, 'adapter'))
       return
@@ -625,11 +902,12 @@ export class BridgeRuntime {
     this.gate?.setOnline(true)
     try {
       if (!this.pollerStarted) {
+        if (this.userPaused) this.adapter?.pause()
         this.startPoller()
         await this.emitRegistered()
         await this.maybeEmitReady(this.adapter?.state ?? this.stateStore?.state ?? null)
       } else {
-        this.resumePoller()
+        if (!this.userPaused) this.resumePoller(false)
         await this.maybeEmitReady(this.adapter?.state ?? this.stateStore?.state ?? null)
       }
     } catch (error) {
@@ -683,6 +961,8 @@ export class BridgeRuntime {
   private async shutdown(): Promise<number> {
     this.stopping = true
     this.clearStopWatcher()
+    if (this.statusTimer) clearInterval(this.statusTimer)
+    this.statusTimer = null
 
     const config = this.config
     const lock = this.instanceLock
@@ -731,6 +1011,16 @@ export class BridgeRuntime {
         this.markShutdownFailure('adapter stop', error)
       }
     }
+    if (this.consoleServer) {
+      const consoleServer = this.consoleServer
+      this.consoleServer = null
+      try {
+        await withTimeout(consoleServer.close(), 3000, 'console close')
+      } catch (error) {
+        this.log('控制台关闭失败：' + errorMessage(error))
+      }
+    }
+
     if (this.pollerPromise) {
       try {
         await withTimeout(this.pollerPromise, 3000, 'poller stop')
