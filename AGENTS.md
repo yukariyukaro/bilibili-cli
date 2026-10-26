@@ -27,6 +27,7 @@
 
 ```bash
 npm test          # 构建、打包、临时安装与端到端回归
+npm run test:compat  # 可选：Node/npm 版本兼容矩阵（不参与默认 test）
 npm run build     # 生成独立发布目录（默认 release/bilibili-cli/）
 npm run pack:cli  # 生成 npm 包
 ```

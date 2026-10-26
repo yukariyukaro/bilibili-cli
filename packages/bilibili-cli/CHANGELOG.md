@@ -34,8 +34,8 @@
   并在帧上新增 `source:{platform,surface,untrusted:true}`。做法对齐 cc-connect 的 `injectSender`，
   只说明来源与不可信，不写人设或回复规则；本地 pending 与去重仍保存原文。自定义人物仍由
   cc-connect 的 `system_prompt`/`append_system_prompt` 负责。
-- 新增可选套件 `test/compat/`（`npm run test:compat`，**不参与默认 `npm test`**）：Node/npm 版本兼容矩阵。每个组合走真实交付路径——`npm pack` 发布目录 → `npm install -g --prefix <隔离前缀>` → PATH 调 `bilibili --version`/`doctor`/`schema`/`skills list` → `npm exec --package <tarball>`；断言只写在 `test/compat/lib/combo.mjs`，容器入口复用同一份，不另立标准。`--check` 只做静态校验（含「默认 `npm test` 未被改动」门禁），`--docker` 用 `node:22`/`node:24` 镜像覆盖 Node 主版本。默认 native 矩阵为 npm `current,9,10,11`；`--node` 低于 `engines.node` 的组合显式跳过并计入失败，不算通过。
-  验证记录（2026-10-26，本机 Windows x64 / Node v24.1.0）：`--check` 与 `test/release/run.mjs --check` 均 exit 0；`test/compat/run.mjs --npm current,9,10,11` exit 0，4 个组合全通过（npm 11.3.0 / 9.9.4 / 10.9.9 / 11.21.1，每组 7 项检查、tarball 41 个文件）。Docker 路径本轮未取得证据：本机 Docker daemon 未运行，`--docker` 按设计返回 `status=unavailable`（exit 2），Node 22/24 组合尚未验证。
+- 新增可选套件 `test/compat/`（`npm run test:compat`，**不参与默认 `npm test`**）：Node/npm 版本兼容矩阵。每个组合走真实交付路径——`npm pack` 发布目录 → `npm install -g --prefix <隔离前缀>` → PATH 调 `bilibili --version`/`doctor`/`schema`/`skills list` → `npm exec --package <tarball>`；断言只写在 `test/compat/lib/combo.mjs`，容器入口复用同一份，不另立标准。`--check` 只做静态校验（含「默认 `npm test` 未被改动」门禁）；`--node-bin <path>` 可用任意 Node 发行版跑 native 组合，并用 `doctor.node` 反向确认 CLI 真的运行在该 Node 上（npm 的 Windows shim 会退回 PATH 里的 `node`，不确认就会把「换 Node」静默测成同一个 Node）；`--docker` 用 `node:22`/`node:24` 镜像覆盖 Node 主版本。默认 native 矩阵为 npm `current,9,10,11`；`--node` 低于 `engines.node` 的组合显式跳过并计入失败，不算通过。
+  验证记录（2026-10-26，本机 Windows x64）：`--check`、`test/release/run.mjs --check`、`npm run typecheck` 均 exit 0。Node **v24.1.0**（宿主）× npm 11.3.0 / 9.9.4 / 10.9.9 / 11.21.1：4/4 组合通过；Node **v22.23.4**（nodejs.org 官方 win-x64 二进制，sha256 已核对）× 同 4 个 npm：4/4 组合通过，且每组 `doctor.node` 断言显示 CLI 确实运行在 v22.23.4 上。每组 7 项检查、tarball 41 个文件。Docker 路径本轮未取得证据：本机 Docker daemon 未运行，`--docker` 按设计返回 `status=unavailable`（exit 2），容器内 Node 22/24 组合尚未验证。
 
 ## 2.0.0 — 2026-10-22
 

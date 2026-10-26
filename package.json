@@ -12,6 +12,9 @@
     "test:bridge:readonly": "node packages/bilibili-cli/test/bridge/e2e/run.mjs readonly",
     "test:bridge:write": "node packages/bilibili-cli/test/bridge/e2e/run.mjs write",
     "test:bridge:docker": "node packages/bilibili-cli/test/bridge/docker/run.mjs",
+    "test:compat": "node packages/bilibili-cli/test/compat/run.mjs",
+    "test:compat:check": "node packages/bilibili-cli/test/compat/run.mjs --check",
+    "test:compat:docker": "node packages/bilibili-cli/test/compat/run.mjs --docker",
     "typecheck": "npm --prefix packages/bilibili-cli run typecheck",
     "pack:cli": "npm --prefix packages/bilibili-cli pack"
   },

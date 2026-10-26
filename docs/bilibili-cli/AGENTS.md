@@ -24,6 +24,7 @@ npm ci                  # 安装依赖与开发工具
 npm run typecheck       # 严格类型检查
 npm run compile         # 编译源码到 dist
 npm test                # 构建、打包、临时安装及端到端回归
+npm run test:compat     # 可选：Node/npm 版本兼容矩阵（需要网络；--check 只做静态校验）
 npm run build           # 生成独立发布目录
 npm pack                # 源码打包前自动编译
 ```
