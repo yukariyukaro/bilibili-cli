@@ -202,7 +202,16 @@ test('features: every new installed write is disabled without authorization; dry
   if (!installed) return
   const home = freshDir('home-feature-write-cli-')
   const options = { home, installed, cwd: WORKDIR }
-  const requests = []
+  // 批量 JSONL 请求先算好再跑：如果只在子用例里 push，任何子用例提前结束时
+  // requests 会是空数组，CLI 读到空 stdin 会「静默无输出」，把真实断言掩盖成
+  // 「bilibili 无输出(code=0)」。这里与子用例执行顺序解耦。
+  const requests = writes.flatMap((definition) => {
+    const args = exampleArgs(definition)
+    return [
+      { id: definition.tool + '-dry', command: definition.name, args: { ...args, dryRun: true } },
+      { id: definition.tool + '-disabled', command: definition.name, args: { ...args, confirm: true } },
+    ]
+  })
   for (const definition of writes) {
     await t.test(definition.name, async () => {
       const args = exampleArgs(definition)
@@ -216,8 +225,7 @@ test('features: every new installed write is disabled without authorization; dry
       const refused = await runBilibili(cliArgs(definition.name, args), options)
       assert.equal(refused.code, 3, refused.stderr)
       assertEnvelope(refused.envelope, definition.name, { ok: false, code: 'WRITE_DISABLED' })
-      requests.push({ id: definition.tool + '-dry', command: definition.name, args: { ...args, dryRun: true } })
-      requests.push({ id: definition.tool + '-disabled', command: definition.name, args: { ...args, confirm: true } })
+
     })
   }
   const jsonl = await runJsonl(requests, options)
