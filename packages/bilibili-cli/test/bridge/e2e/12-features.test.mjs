@@ -409,3 +409,16 @@ test('features: AUDIT failure blocks initial writes or reports terminal uncertai
     })
   }
 })
+
+test('features: risk control maps to RISK_CONTROL instead of a retryable BACKEND', async (t) => {
+  const installed = installedOrSkip(t)
+  if (!installed) return
+  const { toFeatureError } = await import(pathToFileURL(join(installed.packageDir, 'dist', 'lib', 'feature-errors.mjs')).href)
+  for (const code of [412, -352]) {
+    const error = toFeatureError({ code }, true)
+    assert.equal(error.code, 'RISK_CONTROL', 'B 站风控必须单独暴露，不能被当成可重试的 BACKEND：' + code)
+    assert.equal(error.exitCode, 5)
+  }
+  assert.equal(toFeatureError({ code: -1 }, false).code, 'BACKEND')
+  assert.equal(toFeatureError(new Error('boom'), true).code, 'BACKEND')
+})
