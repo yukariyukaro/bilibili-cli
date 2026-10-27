@@ -212,6 +212,8 @@ export function createSocialHandlers(getCredential: GetCredential): Record<strin
     favorite_list: async (dir, p) => {
       const { uid, credential } = await targetUser(dir, p)
       const raw: unknown = await get_video_favorite_list(uid, null, credential)
+      // 上游 code=0 但无 data 时返回 undefined；这是「没有可见收藏夹」，不是格式错误。
+      if (raw === undefined || raw === null) return { uid, count: 0, items: [], empty: true, reason: 'NO_DATA' }
       const data = record(raw, 'favorite_list')
       return { uid, count: responseInteger(data.count, 'favorite_list.count'), items: recordList(data.list, 'favorite_list.list') }
     },
@@ -312,6 +314,7 @@ export function createSocialHandlers(getCredential: GetCredential): Record<strin
     },
     stats_overview: async (dir) => {
       const raw: unknown = await get_overview(getCredential(dir, true))
+      if (raw === undefined || raw === null) return { period: 'week', empty: true, reason: 'NO_DATA', data: {} }
       return { period: 'week', data: opaqueData(raw, 'stats_overview') }
     },
     stats_video: async (dir, p) => {
@@ -324,6 +327,7 @@ export function createSocialHandlers(getCredential: GetCredential): Record<strin
     },
     stats_fans: async (dir) => {
       const raw: unknown = await get_fan_overview(getCredential(dir, true))
+      if (raw === undefined || raw === null) return { period: 'week', empty: true, reason: 'NO_DATA', data: {} }
       return { period: 'week', data: opaqueData(raw, 'stats_fans') }
     },
     upload_topics: async (dir, p) => {

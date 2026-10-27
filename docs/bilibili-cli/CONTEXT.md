@@ -1,6 +1,6 @@
 # bilibili-cli 上下文交接
 
-更新时间：2026-10-22（Asia/Shanghai）。这是已完成工作的交接摘要，不替代源码、测试或发布记录。
+更新时间：2026-10-27（Asia/Shanghai）。这是已完成工作的交接摘要，不替代源码、测试或发布记录。
 
 > 2026-10-22 仓库结构调整：CLI 源码移到 `packages/bilibili-cli/`，维护者文档在 `docs/bilibili-cli/`，Skill 只保留 `skills/bilibili-cli/{SKILL.md,references/}`。以下历史记录中的 `src/`、`test/` 路径相对 `packages/bilibili-cli/`。
 
@@ -79,6 +79,18 @@ node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "旧目录绝对路�
 
 用户另行授权使用当前 CLI 保存的账号 A，账号 B 扫码登录；CLI 只读核验两账号不同且双向互关。真实 readonly 套件为 **18 pass / 1 fail / 3 skip，exit 1**：min_seqno 不等于消息最小序号；两条 msg_key 超安全整数。保留红灯、没有修改断言。补充诊断中 writesEnabled=false 且 audit 未变。首轮真实 bridge 已 ready，但 5 分钟内未观察到指定人工消息后自动停止。随后按明确授权改用 B→A CLI 私信，但第一次脚本在 `dm send` 后的本地摘要步骤出错，我误判为未发送而又执行了一次，导致 A 收到 2 条相同消息；两次均有审计记录，B 写权限已恢复 false，未删除消息。bridge 探针任务请求的 Windows 工作目录当时不存在，DSH 包装器在脚本执行前失败（错误文本提及 powershell.exe ENOENT）；探针代码未运行，不是产品 bridge 或系统 PowerShell 缺失证据。真实入站转发、回复拒绝及重启去重尚未验证。详情见 [最新测试台账](../../packages/bilibili-cli/test/bridge/BASELINE.md) 首节。
 
+### 5.3 2.1.0 接入 bilibili-api-ts 17.5.0（2026-10-27，未发布）
+
+分支 `feat/api-cli-skill`（PR #32，草稿）：`0bf84e2` 接入 40 条命令、`839bd58` JSONL 用例解耦、`9a46cb6` 补 RISK_CONTROL 回归。
+
+- 上游 `@yukariyukaro/bilibili-api-ts@17.5.0` 已通过 npm trusted publishing 发布（带 provenance）；本仓库 CLI 版本升到 2.1.0，**npm 上仍是 2.0.0**，需合入 main 后打 `v2.1.0` 标签才发布。
+- 新增命令：`video relation|like|coin|favorite|triple|snapshot|summary|toview`、`danmaku list|send|recall|like`、`comment like|pin`、`user videos`、`emoji list|detail|add`、`dynamic list|info|post|delete|like|top`、`favorite list|content|create|delete`、`season list|videos|create|add|remove|delete`、`stats overview|fans|video`、`upload topics|missions|cover`；公开契约共 67 条。
+- 写保护沿用同一套：`writesEnabled` 硬开关 + 逐次 `--confirm` + `--dry-run` 只预览 + 审计；审计 `detail` 只保留目标键白名单并附 `requestSha256`，不落正文/标题/本地路径。412 与业务码 −352 映射为 `RISK_CONTROL`（exit 5），不再混进可重试的 `BACKEND`。
+- 未开放：完整视频投稿（17.5.0 上游失败分片会无限重试、标签校验有反向问题）、动态转发（返回 ID 无可靠契约），原因写入 CHANGELOG，不隐藏。
+- 离线证据：`npm run typecheck` 通过；`test/bridge/e2e/12-features.test.mjs` 安装产物 155/155 通过；快照 `test/contracts/features-2.1.0.json`。CI 离线与真实只读两个 job 在 PR #32 上为 pass。
+- **真实只读未取得通过证据**：2026-10-27 晚本机 `www.bilibili.com` 可达但 `api.bilibili.com` 不可达（直连 TLS reset、经本机代理 HTTP 502），`auth status` 报 `logged_in:false`，`video info`/`stats`/`favorite` 全部返回 `BACKEND`；因此 Skill-only 子代理评测与 `stats`/`favorite` 的真实复验本轮未完成，不记为通过。
+- 期间发现两处待验证语义（已改代码、未拿到真实验证）：上游 `code=0` 但无 `data` 时 `stats overview|fans`、`favorite list` 曾报格式错误，现改为 `empty:true / reason:"NO_DATA"`；`danmaku list --segment 1` 曾返回 0 条而 `video info` 报 1 条，疑为弹幕时间落在其他 6 分钟段，尚未证实。
+
 ## 6. 常用命令（本目录）
 
 ```bash
@@ -112,4 +124,5 @@ node packages/bilibili-cli/test/bridge/docker/run.mjs --check
 - B站私信仍单页30，积压分页未验证；cc-connect无送达ack，不能宣称exactly-once；pending含正文，状态目录需保护。锁guard崩溃可能需人工核验恢复。
 - 真实只读的 min_seqno 已改为已知问题诊断（BILI-MINSEQNO），不再保留永久红灯；该断言仍指向未证实的测试假设：bridge 不读顶层 min/max/has_more，不能据此断言丢信。API 层普通 JSON.parse 的大整数舍入是另一独立风险；bridge lossless 只保全 CLI 已输出文本，数字串路径未必触发 unsafe 检测/复合键回退。尚未复现真实 ID 碰撞，见最新测试台账。
 - cleanup有保守false-negative；非恶意并发使用，Windows nofollow能力有限，不宣称能防本地恶意竞态。
+- 2.1.0 仍待办：真实只读复验 `stats`/`favorite`/`danmaku` 三条、Skill-only 子代理 8 任务成功率矩阵、全量 `npm test` 在 67 命令契约下重跑、PR #31 等待 review 后按用户指令处理（不擅自合并）。
 - 后续若授权提交：先检查差异和用户预存改动，选准文件、更新日志、复验后再提交。根CHANGELOG删除是既有用户改动，不擅自恢复。

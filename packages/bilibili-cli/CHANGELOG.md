@@ -16,7 +16,8 @@
   - 所有新增写命令复用同一套写保护：`writesEnabled` 硬开关 + 逐次 `--confirm` + `--dry-run` 只预览 + 审计（正文只存 SHA-256，审计不含标题/简介/本地路径）。投币与三连标注真实硬币支出、不可退回。
   - **未开放**：完整视频投稿（17.5.0 上游失败分片会无限重排重试，标签校验也有已知反向问题）、动态转发（返回 ID 无可靠契约，实发后无法确认结果）。
   - 错误映射：B 站风控（HTTP 412 / 业务码 -352）返回 `RISK_CONTROL` 并提示停止操作，不再混在 `BACKEND` 里被误读成可重试。
-  - 验证：`npm run typecheck` 通过；`test/bridge/e2e/12-features.test.mjs` 覆盖新增命令的帮助/schema/JSONL 同源、写门禁、19 位 ID 无损、审计与失败不重试；离线快照为 `test/contracts/features-2.1.0.json`。**真实 B 站只读未取得通过证据**：2026-10-27 本机探测被风控 412 拒绝，Skill-only 子代理真实只读评测因此未运行，不计为通过。
+  - 验证：`npm run typecheck` 通过；`test/bridge/e2e/12-features.test.mjs` 覆盖新增命令的帮助/schema/JSONL 同源、写门禁、19 位 ID 无损、审计与失败不重试；离线快照为 `test/contracts/features-2.1.0.json`。**真实 B 站只读未取得通过证据**：2026-10-27 本机对 `api.bilibili.com` 的请求先遇风控 412，后为 TLS 连接重置（`www.bilibili.com` 可达、API 主机经本机代理返回 502），`auth status` 报 `logged_in:false`；Skill-only 子代理真实只读评测因此未完成，不计为通过。
+  - 语义修正：上游 `code=0` 但无 `data` 时，`stats overview|fans` 与 `favorite list` 返回 `empty:true` / `reason:"NO_DATA"` 的空结果，不再按「响应格式异常」报 `BACKEND`；该修正本身还没有真实验证证据。文档同时说明 `danmaku list` 是 6 分钟分段计数，不能与 `video info` 的整条视频弹幕总数直接比较。
 
 - 控制台改为随 `bilibili bridge run` 在同一进程内自动启动（默认 `127.0.0.1:9820`，`BILIBILI_CONSOLE_PORT` 可改、`BILIBILI_CONSOLE_DISABLE=1` 关闭）；控制台启动失败只记日志，不影响私信监听与退出码。`bridge web` 保留为“控制台托管子进程”的替代入口。
 - bridge 新增刷视频与评论回复能力：`runScrollCycle()` 拉取热门/搜索视频与评论，按 `comment reply_ctx` 把目标交给 agent；agent 回复经 `commentPolicy`（off/draft/owner）、评论上限与 CLI 写入审计后落为评论。控制台「立即执行/定时」触发真实循环并上报 `scroll_done`。
