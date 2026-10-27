@@ -40,6 +40,9 @@
     "test:release": "node test/release/run.mjs",
     "test:release:check": "node test/release/run.mjs --check",
     "test:release:docker": "node test/release/run.mjs --docker",
+    "test:compat": "node test/compat/run.mjs",
+    "test:compat:check": "node test/compat/run.mjs --check",
+    "test:compat:docker": "node test/compat/run.mjs --docker",
     "prepack": "node scripts/compile.mjs"
   },
   "dependencies": {

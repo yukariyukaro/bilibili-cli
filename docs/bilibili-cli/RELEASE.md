@@ -103,6 +103,23 @@ npm publish "<tarball 绝对路径>" --registry=https://registry.npmjs.org/ --ac
 - 缺少或失效的登录态会输出 `live.status=skipped` 并继续跑离线用例，不会把“没登录”伪装成真实只读通过。需要“登录态失效即失败”时，给 bridge 入口设置 `BILIBILI_E2E_REQUIRE_LOGIN=1`。
 - 使用专用测试账号，不要用主账号；轮换凭证只需更新 Secret。真实只读账号的 `writesEnabled` 保持 false，CI 不执行真实写。
 
+## Node / npm 版本兼容矩阵（可选）
+
+默认 `npm test` 固定跑当前 Node/npm，只证明一条路径可用；多版本行为用下面的**可选**套件单独验证，**不参与默认 `npm test`**，也未接入 CI（避免每次 PR 都拉多个 npm 版本）：
+
+```bash
+npm run test:compat:check    # 静态校验：文件、脚本注册、Dockerfile、默认 npm test 未被改动（不联网）
+npm run test:compat          # 当前 Node × npm current,9,10,11（需要网络）
+npm run test:compat -- --node-bin "C:\path\node-v22-win-x64\node.exe"   # 换 Node 跑同一套组合（无需 Docker）
+npm run test:compat:docker   # Node 22/24 镜像自带 npm，可用 --npm 追加 npm 版本（需要 Docker）
+```
+
+每个组合都走真实交付路径：`npm pack` 发布目录 → `npm install -g --prefix <隔离前缀>` → PATH 调 `bilibili --version`/`doctor`/`schema`/`skills list` → `npm exec --package <tarball>`。断言只写在 [test/compat/lib/combo.mjs](../../packages/bilibili-cli/test/compat/lib/combo.mjs) 一处，容器入口复用同一份。
+
+换 Node 时用 `doctor.node` 反向确认 CLI 真的运行在目标 Node 上：npm 的 Windows shim 找不到同目录 `node.exe` 就退回 PATH 里的 `node`，不确认会把「换 Node」静默测成同一个 Node。
+
+默认矩阵的依据：`engines.node >= 22` 对应 npm >= 10，npm 9 是用户显式降级会遇到的边界；`--node` 低于 `engines.node` 的组合显式跳过并计入失败，不算通过。细节、退出码与证据边界见 [test/compat/README.md](../../packages/bilibili-cli/test/compat/README.md)。
+
 ## 发布后的验证
 
 发布输出出现 `+ @yukariyukaro/bilibili-cli@x.y.z` 只代表请求被受理，还要检查：
