@@ -4,7 +4,7 @@
 
 ## 前提
 
-- 安装产物来自真实交付路径（`npm pack` → `npm install -g --prefix <隔离前缀>`），评测时该前缀优先于其他 PATH 项，`bilibili --version` 必须等于待评测版本（2.1.0）。
+- 安装产物来自真实交付路径（构建 → pack → 全局前缀安装，安装规则见 [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)），评测时该前缀优先于其他 PATH 项，`bilibili --version` 必须等于待评测版本（2.1.0）。
 - 复用本机已登录的默认状态目录；**不要**设置 `BILIBILI_SKILL_HOME` 指向未登录目录，否则所有需要登录的任务只会得到 `AUTH`（exit 3），那是评测设置错误，不是产品缺陷。
 - 不读取、不打印、不复制凭证；不执行任何写命令。
 
