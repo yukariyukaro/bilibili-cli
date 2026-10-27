@@ -34,7 +34,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -70,7 +70,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -106,7 +106,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -130,7 +130,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -199,7 +199,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -293,7 +293,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -331,7 +331,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -374,7 +374,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -410,7 +410,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -446,7 +446,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -552,7 +552,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -615,7 +615,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -640,7 +640,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -670,7 +670,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -700,7 +700,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -779,7 +779,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -804,7 +804,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -898,7 +898,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -930,7 +930,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -962,7 +962,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -987,7 +987,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {
@@ -1064,7 +1064,7 @@ export const featureCommands: CommandDefinition[] = [
       },
       "confirm": {
         "type": "boolean",
-        "description": "本次准确目标、最终正文及硬币支出已由用户逐次确认",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
         "default": false
       },
       "dryRun": {

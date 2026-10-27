@@ -14,7 +14,7 @@ metadata:
 
 ## 1. 准备与发现
 
-- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖。本文件版本 2.1.0，兼容 CLI 2.1.x；doctor 的 `skill.*` 是 **CLI 随包文档**，不一定是实际加载的 Skill 副本，二者分别核验，不自动升降级。`skill.docVersion=null` 表示随包文档未解析出版本头，此时以本文件头部的 `version` 字段为准，不要据此判定版本不匹配或尝试降级。
+- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖。本文件版本 2.1.0，兼容 CLI 2.1.x；doctor 的 `skill.*` 是 **CLI 随包文档**，不一定是实际加载的 Skill 副本，二者分别核验，不自动升降级。`skill.docVersion=null` 表示随包文档未解析出版本头（例如从源码目录安装、包内没有 SKILL.md），此时以本文件 frontmatter 的 `metadata.version` / `metadata.requiresCli` 为准，不要据此判定版本不匹配或尝试降级。若实际加载的 Skill 副本版本低于本文件（常见于旧安装），仍按本文件执行命令，但提示用户升级 Skill；不因副本偏低而降级 CLI 或改用旧命令名。
 - 命令缺失时按 [安装与运行](references/cli-contract.md#安装与运行) 告知用户并取得同意。Skill 不含 CLI，不静默安装，不用 npx、源码脚本或其他同名包代替。
 - 普通调用加 `--json`，检查 `ok` 和内容字段。参数不确定先查 `bilibili <命令> --help` 或 `bilibili schema --json`，不猜命令或旧别名。完整参数见 [CLI 契约](references/cli-contract.md#命令树)。
 

@@ -108,7 +108,7 @@ bilibili stats fans --json
 bilibili stats video --bvid "<本账号自己的真实BV>" --json
 ~~~
 
-- overview/fans返回period=week和data；按实际字段区分单位、累计和区间，字段含义不清就注明，不能自行定义时间口径。
+- overview/fans返回period=week和data；按实际字段区分单位、累计和区间，字段含义不清就注明，不能自行定义时间口径。**空数据不是失败**：本周无数据时 overview 返回 `empty:true`、`reason:"NO_DATA"`、`data:{}`，fans 若为空同理；fans 的 `all_fans`/`all_fans_acc`/`interact_fans`/`over_peer_percent` 与 `log_date`（整数如 20261026）按字段名如实转述，不推断单位。
 - stats video的dataSource是creator_archive_management，返回edits/parts，属于单稿编辑记录和分P管理数据，**不是播放分析或完播率**。unavailable包含completion_rate。权限拒绝、空结果都不能改写为“读取到完整数据”。
 - 不请求或推断别人的创作中心权限，不读取凭证。当前无完播率查询，不用账号整体统计冒充单稿完播率。
 
