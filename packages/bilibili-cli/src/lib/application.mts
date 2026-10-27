@@ -7,7 +7,7 @@ import { auditFile, configFile, credentialFile, readJson, stateDir, writeJson } 
 import { createRuntime } from './runtime.mjs'
 import type { Runtime } from './runtime.mjs'
 import { VERSION } from './version.mjs'
-import { readSkillMeta, skillMatchesCli } from './skill-meta.mjs'
+import { findInstalledSkills, readSkillMeta, skillMatchesCli } from './skill-meta.mjs'
 import { isRecord } from './cli-types.mjs'
 import type { Application, BridgeControlName, ValidatedArgs } from './cli-types.mjs'
 
@@ -113,6 +113,7 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
           librarySpec: info.spec,
         }
       }
+      const installed = findInstalledSkills(meta, VERSION)
       return {
         node: process.version,
         stateDir: dir,
@@ -128,6 +129,9 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
           requiresCli: meta?.requiresCli ?? null,
           docPath: join(root, 'SKILL.md'),
           matchesCli: skillMatchesCli(meta, VERSION),
+          // 实际加载的 Skill 副本可能比随包文档旧（旧安装），必须显式暴露，否则 Agent 看不到升级信号。
+          installed,
+          updateAvailable: installed.some((item) => item.outdated),
         },
       }
     }

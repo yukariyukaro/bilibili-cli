@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -283,6 +283,17 @@ await check('真实分组帮助、schema 和技能发现均无用户状态副作
   assert.equal(setup.setup, true, 'doctor --setup 必须真正返回运行时装配视图')
   assert.equal(setup.library, '@yukariyukaro/bilibili-api-ts')
   assert.equal(Object.hasOwn(setup, 'credentialPresent'), false, 'setup 视图不读取/不报告凭证状态')
+  // 旧 Skill 副本必须被 doctor 发现并标记，否则 Agent 只能看到“随包文档一致”，永远收不到升级提示。
+  const fakeSkill = join(temp, '.agents', 'skills', 'bilibili-cli')
+  mkdirSync(fakeSkill, { recursive: true })
+  writeFileSync(join(fakeSkill, 'SKILL.md'), '---\nname: bilibili-cli\nmetadata:\n  version: "0.0.1"\n  requiresCli: "0.0"\n---\n', 'utf8')
+  const staleDoctor = json(['doctor']).result
+  const stale = staleDoctor.skill.installed.find((item) => item.path.includes('.agents'))
+  assert.ok(stale, 'doctor 必须扫描当前工作目录下的 Skill 副本')
+  assert.equal(stale.docVersion, '0.0.1')
+  assert.equal(stale.outdated, true, '旧副本必须被标记为 outdated')
+  assert.equal(staleDoctor.skill.updateAvailable, true, '存在旧副本时 updateAvailable 必须为 true')
+  rmSync(fakeSkill, { recursive: true, force: true })
 })
 
 await check('文档一致性：单一安装入口、无 npx 运行 CLI、命令表与 schema 对齐', () => {

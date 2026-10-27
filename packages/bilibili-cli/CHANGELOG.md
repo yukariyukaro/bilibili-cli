@@ -2,6 +2,16 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
+## 2.1.1 — 2026-10-27
+
+### 新增与变更
+
+- **修复 Skill 更新信号缺失**：此前 `doctor`/`skills list` 的 `skill.*` 只反映 CLI 随包文档，用户在 `~/.agents/skills/bilibili-cli` 里装的旧副本（例如 2.0.0）不会被发现，Agent 看到 `matchesCli:true` 就认为“版本一致”，从不提示升级。子代理实测确认了这个盲区。
+  - `doctor.skill` 新增 `installed[]`（扫描 `~/.agents/skills/bilibili-cli`、`~/.claude/skills/bilibili-cli`、当前目录同名路径与 `BILIBILI_SKILL_DIR`，只读 frontmatter）与 `updateAvailable`；副本版本低于随包文档时标 `outdated:true`。
+  - SKILL.md 第 1 节改为强制检查：`updateAvailable=true` 时主动告诉用户“加载的 Skill 落后”，给升级入口并等用户决定；不自动升级、不降级 CLI。
+  - 回归：`npm test` 在当前工作目录放一份 0.0.1 的假 Skill，断言 `installed[].outdated` 与 `updateAvailable` 都为 true。
+  - 测试稳定性：安装产物 E2E 增至 188 个用例（新增 40 条命令），Windows 高负载下 150s 会误判超时，时限放宽到 300s（只放宽时限，不放宽断言）。
+
 ## 2.1.0 — 2026-10-27
 
 ### 破坏性变更

@@ -2,7 +2,7 @@
 name: bilibili-cli
 description: 通过 bilibili CLI 搜索 B 站视频、读字幕和官方 AI 总结、快照、弹幕、评论、UP 投稿、动态、公开收藏与合集，查询账号通知、私信和本人创作数据。扫码登录、点赞收藏投币三连、发送或删除内容、管理旧版系列及上传封面时也使用此 Skill；所有写操作逐次确认。需要长期监听或本机控制台时使用 bridge。
 metadata:
-  version: "2.1.0"
+  version: "2.1.1"
   requiresCli: "2.1"
   requires:
     bins: ["bilibili"]
@@ -14,7 +14,11 @@ metadata:
 
 ## 1. 准备与发现
 
-- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖。本文件版本 2.1.0，兼容 CLI 2.1.x；doctor 的 `skill.*` 是 **CLI 随包文档**，不一定是实际加载的 Skill 副本，二者分别核验，不自动升降级。`skill.docVersion=null` 表示随包文档未解析出版本头（例如从源码目录安装、包内没有 SKILL.md），此时以本文件 frontmatter 的 `metadata.version` / `metadata.requiresCli` 为准，不要据此判定版本不匹配或尝试降级。若实际加载的 Skill 副本版本低于本文件（常见于旧安装），仍按本文件执行命令，但提示用户升级 Skill；不因副本偏低而降级 CLI 或改用旧命令名。
+- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖与版本。本文件版本 2.1.1，要求 CLI 2.1.x。
+- **每次开始任务都要看 Skill 是否需要更新**：`doctor` 的 `skill.installed[]` 是 CLI 扫描到的本机 Skill 副本（`~/.agents/skills/bilibili-cli`、`~/.claude/skills/bilibili-cli`、当前目录同名路径，以及 `BILIBILI_SKILL_DIR`）；`skill.updateAvailable=true` 表示至少一份比 CLI 随包文档旧。
+- `skill.updateAvailable=true` 或某份 `installed[].outdated=true` 时：**主动告诉用户**「你加载的 Skill 是 X，本机 CLI 随包文档是 Y，Skill 落后了」，给出升级方式（见 [Skill 安装与升级](references/skill-upgrade.md)）并等用户决定；不自动升级，也不因此降级 CLI 或改用旧命令名。升级前仍按本文件执行，但只用 `bilibili schema --json` 与 `--help` 确认过的命令。
+- `skill.installed` 为空（扫描不到副本，例如宿主把 Skill 装在别处）时，用本文件 frontmatter 的 `metadata.version` / `metadata.requiresCli` 与 `skill.docVersion` / `skill.requiresCli` 手工比较；本文件更低就按上一条提示升级。
+- `skill.matchesCli=false` 表示随包文档与 CLI 主次版本不一致：先核对版本再继续，不自动升级或降级。`skill.docVersion=null` 表示从源码目录安装、包内没有 SKILL.md，此时以本文件 frontmatter 为准，不据此判定版本不匹配。
 - 命令缺失时按 [安装与运行](references/cli-contract.md#安装与运行) 告知用户并取得同意。Skill 不含 CLI，不静默安装，不用 npx、源码脚本或其他同名包代替。
 - 普通调用加 `--json`，检查 `ok` 和内容字段。参数不确定先查 `bilibili <命令> --help` 或 `bilibili schema --json`，不猜命令或旧别名。完整参数见 [CLI 契约](references/cli-contract.md#命令树)。
 

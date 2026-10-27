@@ -104,7 +104,8 @@ for (const mode of ['installed', 'timeout', 'exit', 'malformed', 'audit']) {
 
 // 3) 安装后 CLI / bridge 命令 / 本地控制面契约
 {
-  const result = await runNode(join(HERE, 'e2e', 'run.mjs'), ['readonly'], { timeout: 150000 })
+  // 安装产物 E2E 现有 188 个用例（含 40 条新命令），Windows 高负载下 150s 会误判超时；放宽到 300s 只放宽时限，不放宽断言。
+  const result = await runNode(join(HERE, 'e2e', 'run.mjs'), ['readonly'], { timeout: 300000 })
   const pass = result.code === 0 && !result.timedOut
   record('e2e:installed-cli', pass ? 'passed' : 'failed', pass ? {} : { code: result.code, timedOut: result.timedOut, error: (result.stderr || result.stdout).slice(-6000) })
 }

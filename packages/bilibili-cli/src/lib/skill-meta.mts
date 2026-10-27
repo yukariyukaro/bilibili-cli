@@ -3,8 +3,9 @@
  * 让 skills list / doctor 能回答“文档和 CLI 是否同源”。只解析本文件实际使用的
  * 三个标量，不引入 YAML 依赖，也不信任 frontmatter 之外的任何内容。
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 export interface SkillMeta {
   name: string
@@ -37,6 +38,59 @@ export function readSkillMeta(dir: string): SkillMeta | null {
   } catch {
     return null
   }
+}
+
+/** 本机已安装的 Skill 副本：版本低于随包文档时提示升级，而不是让 Agent 蒙在鼓里。 */
+export interface InstalledSkill {
+  path: string
+  docVersion: string | null
+  requiresCli: string | null
+  matchesCli: boolean
+  outdated: boolean
+}
+
+/** 逐段比较语义版本；无法解析的段按 0 处理，只用于判断“谁更旧”。 */
+export function compareVersions(a: string, b: string): number {
+  const left = a.split(/[.+-]/).map((part) => Number.parseInt(part, 10) || 0)
+  const right = b.split(/[.+-]/).map((part) => Number.parseInt(part, 10) || 0)
+  for (let index = 0; index < Math.max(left.length, right.length); index++) {
+    const diff = (left[index] ?? 0) - (right[index] ?? 0)
+    if (diff !== 0) return diff < 0 ? -1 : 1
+  }
+  return 0
+}
+
+/**
+ * 扫描本机常见 Skill 安装位置（允许用 BILIBILI_SKILL_DIR 显式指定）。
+ * 只读 frontmatter，不读正文、不写文件；目录不存在时直接跳过。
+ */
+export function findInstalledSkills(packaged: SkillMeta | null, cliVersion: string): InstalledSkill[] {
+  const candidates: string[] = []
+  const explicit = process.env.BILIBILI_SKILL_DIR
+  if (explicit) candidates.push(explicit)
+  for (const base of [process.cwd(), homedir()]) {
+    candidates.push(join(base, '.agents', 'skills', 'bilibili-cli'))
+    candidates.push(join(base, '.claude', 'skills', 'bilibili-cli'))
+    // 仓库/源码检出：skills/bilibili-cli 是随包文档的源文件，同样纳入比较。
+    candidates.push(join(base, 'skills', 'bilibili-cli'))
+  }
+  const seen = new Set<string>()
+  const found: InstalledSkill[] = []
+  for (const dir of candidates) {
+    const path = resolve(dir)
+    if (seen.has(path)) continue
+    seen.add(path)
+    if (!existsSync(join(path, 'SKILL.md'))) continue
+    const meta = readSkillMeta(path)
+    found.push({
+      path: join(path, 'SKILL.md'),
+      docVersion: meta?.version ?? null,
+      requiresCli: meta?.requiresCli ?? null,
+      matchesCli: skillMatchesCli(meta, cliVersion),
+      outdated: meta !== null && packaged !== null && compareVersions(meta.version, packaged.version) < 0,
+    })
+  }
+  return found
 }
 
 /** 文档声明的 CLI 主次版本，例如 2.0.0 -> '2.0'。 */
