@@ -87,7 +87,7 @@ node packages/bilibili-cli/scripts/skill-cleanup.mjs --path "旧目录绝对路�
 - 新增命令：`video relation|like|coin|favorite|triple|snapshot|summary|toview`、`danmaku list|send|recall|like`、`comment like|pin`、`user videos`、`emoji list|detail|add`、`dynamic list|info|post|delete|like|top`、`favorite list|content|create|delete`、`season list|videos|create|add|remove|delete`、`stats overview|fans|video`、`upload topics|missions|cover`；公开契约共 67 条。
 - 写保护沿用同一套：`writesEnabled` 硬开关 + 逐次 `--confirm` + `--dry-run` 只预览 + 审计；审计 `detail` 只保留目标键白名单并附 `requestSha256`，不落正文/标题/本地路径。412 与业务码 −352 映射为 `RISK_CONTROL`（exit 5），不再混进可重试的 `BACKEND`。
 - 未开放：完整视频投稿（17.5.0 上游失败分片会无限重试、标签校验有反向问题）、动态转发（返回 ID 无可靠契约），原因写入 CHANGELOG，不隐藏。
-- 离线证据：`npm run typecheck` 通过；`test/bridge/e2e/12-features.test.mjs` 安装产物 155/155 通过；快照 `test/contracts/features-2.1.0.json`。CI 离线与真实只读两个 job 在 PR #32 上为 pass。
+- 离线证据：`npm run typecheck` 通过；`npm test` 全量 15 组通过、bridge 失败 0（本机 Windows 2026-10-27；首轮曾报 1 组 bridge 失败，重跑未复现，记为 flake）；`test/bridge/e2e/12-features.test.mjs` 安装产物 155/155 通过；快照 `test/contracts/features-2.1.0.json`。PR #32 提交 `d49243a` 的 CI：离线 E2E pass（3m52s）、真实只读 job pass（无 `BILIBILI_E2E_CREDENTIAL` 时只跑离线用例，不等于真实只读通过）、review 因草稿而 skip。
 - **真实只读未取得通过证据**：2026-10-27 晚本机 `www.bilibili.com` 可达但 `api.bilibili.com` 不可达（直连 TLS reset、经本机代理 HTTP 502），`auth status` 报 `logged_in:false`，`video info`/`stats`/`favorite` 全部返回 `BACKEND`；因此 Skill-only 子代理评测与 `stats`/`favorite` 的真实复验本轮未完成，不记为通过。
 - 期间发现两处待验证语义（已改代码、未拿到真实验证）：上游 `code=0` 但无 `data` 时 `stats overview|fans`、`favorite list` 曾报格式错误，现改为 `empty:true / reason:"NO_DATA"`；`danmaku list --segment 1` 曾返回 0 条而 `video info` 报 1 条，疑为弹幕时间落在其他 6 分钟段，尚未证实。
 
