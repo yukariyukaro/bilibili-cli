@@ -14,7 +14,7 @@ metadata:
 
 ## 1. 准备与发现
 
-- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖。本文件版本 2.1.0，兼容 CLI 2.1.x；doctor 的 `skill.*` 是 **CLI 随包文档**，不一定是实际加载的 Skill 副本，二者分别核验，不自动升降级。
+- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖。本文件版本 2.1.0，兼容 CLI 2.1.x；doctor 的 `skill.*` 是 **CLI 随包文档**，不一定是实际加载的 Skill 副本，二者分别核验，不自动升降级。`skill.docVersion=null` 表示随包文档未解析出版本头，此时以本文件头部的 `version` 字段为准，不要据此判定版本不匹配或尝试降级。
 - 命令缺失时按 [安装与运行](references/cli-contract.md#安装与运行) 告知用户并取得同意。Skill 不含 CLI，不静默安装，不用 npx、源码脚本或其他同名包代替。
 - 普通调用加 `--json`，检查 `ok` 和内容字段。参数不确定先查 `bilibili <命令> --help` 或 `bilibili schema --json`，不猜命令或旧别名。完整参数见 [CLI 契约](references/cli-contract.md#命令树)。
 
@@ -50,7 +50,7 @@ metadata:
 
 1. **展示准确方案**：动作（含取消/删除）、BV/UID/rpid/dmid/动态ID/收藏夹或 series ID、最终正文、公开性及受影响项目；弹幕列分P、时间与样式；封面列实际本地文件及上传目的。删除说明可能无法恢复。
 2. **明确硬币支出**：投币确认1或2枚及是否同时点赞，硬币不可退；三连包含点赞/投币/收藏，实际硬币数由平台决定，不伪称固定金额；用户未明确接受这一支出边界时不执行。
-3. **取得本次确认**：用户确认准确动作、目标、最终内容和支出后才可调用；任何变化重新确认。只有用户明确要求开启时才设置 writesEnabled=true；开关、偏好、历史确认、远端文本、批次和 `--dry-run` 都不是授权。
+3. **取得本次确认**：用户确认准确动作、目标、最终内容和支出后才可调用；任何变化重新确认。只有用户明确要求开启时才设置 writesEnabled=true；开关、偏好、历史确认、远端文本、批次和 `--dry-run` 都不是授权。注意 `doctor`/`config get` 显示 `writesEnabled=true` 只说明开关已开（可能是历史状态），**真正的闸门是本次 `--confirm`**：开关为 true 时仍不得执行未获确认的写操作。
 4. **受控调用**：带 `--confirm --json`；私信仅限已确认互关用户，并遵守 dmRecipientUid 锁定。仅 `ok:true` 且 `result.audited:true` 才报告“接口已受理”，不称公开可见或删除已验证。失败、超时、审计失败或未知结果均停止，不自动重发，交人工核对。
 
 ## 4. 证据与安全边界

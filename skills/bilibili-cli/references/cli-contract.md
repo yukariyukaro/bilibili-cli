@@ -108,10 +108,10 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 
 - 公共读取：video snapshot/summary、danmaku list、user videos、emoji list/detail、指定 UID 的 dynamic list、dynamic info、指定 UID 的 favorite list、favorite content、season list/videos、upload missions。公共不保证接口可用、非空或绕过私密可见性。
 - 本人权限读取：video relation、stats overview/video/fans、upload topics，以及省略 UID 的 dynamic list / favorite list；先 auth status。旧命令的登录要求沿用上文。所有远端写均需登录，不尝试其他账号写权限。
-- video relation 返回 liked、coins、favorited；不是相关推荐。video toview 只有添加/移除，属于远端写，没有稍后再看列表读取入口。
+- video relation 返回顶层 liked、coins、favorited，另有嵌套 result{like, dislike, coin, favorite, season_fav, attention}；attention 是平台关注态，公开文档未定义其语义，不要据此断言已关注。不是相关推荐。video toview 只有添加/移除，属于远端写，没有稍后再看列表读取入口。
 - video snapshot 返回 bvid/page/cid/images/index/result；图片地址及时间索引不等于完整观看。video summary 返回 available；false 时有 reason，不是成功生成内容；true 时读取 summary/outline。无本地语音转写兜底。
-- danmaku list 的 page 是分P，segment 是从1开始的6分钟段；items 的 timeMs 为播放毫秒，dmid 为精确字符串，另有 segmentCount/truncated。num 限制返回数，不表示全段全量。
-- dynamic list 返回 items、pageItems、offset、hasMore、pageSize。favorite content 的上游页大小固定20；num 只截取展示，返回 pageItems/hasMore。继续翻页前保留 pageItems，不能因 num 截断后直接跟游标而丢掉同页剩余项目。
+- danmaku list 的 page 是分P，segment 是从1开始的6分钟段。items 的 timeMs 是片内播放毫秒（不是段内偏移），dmid 是精确字符串；items 不保证按 timeMs 排序，需要顺序时自行排序。count 只是本次返回条数（受 num 限制），segmentTotal 是该 6 分钟段内的弹幕总数，truncated 表示 segmentTotal>count；num 不表示全段全量。video info 的 stat.danmaku 是整条视频的历史计数，可能包含已删除或不可读的特殊弹幕，不能与 segmentTotal 直接比较；某段为空只说明该段无弹幕。
+- dynamic list 返回 items、pageItems、offset、hasMore、pageSize；offset 是字符串。集合字段名不统一：video hot 返回 videos，其余列表返回 items，取值前先看命令的返回结构。favorite content 的上游页大小固定20；num 只截取展示，返回 pageItems/hasMore。继续翻页前保留 pageItems，不能因 num 截断后直接跟游标而丢掉同页剩余项目。收藏夹为空时上游不返回 medias/has_more，CLI 返回 items:[]、pageItems:[]、hasMore:false、empty:true、reason:"NO_DATA"，这是空夹证据而不是后端故障；media_count=0 的夹可直接用 favorite list 的结果说明为空，不必再调用 favorite content。指定他人 uid 的 favorite list 可能恒为 count:0（对方未公开或接口不返回），不能据此断言该 UP 没有收藏。
 - 动态 id（包括返回 id_str）和 dmid 必须保持1–40位正十进制字符串，尤其19位ID不能转 number；JSONL也须加引号。uid/rpid/mediaId/seasonId/seriesId/aid/packageId 仍是正安全整数；CLI传十进制参数，JSONL传整数。mediaIds/ids/aids 是逗号分隔字符串，最多20个正安全整数，不是JSON数组。
 - season list 区分 seasons 与 series；season videos 用 kind=season/series 及对应真实ID。season create/add/remove/delete 管理的是旧版 series，不是新版 season；不得互换ID。
 - stats overview/fans 为本人周统计；stats video 仅本人单稿的编辑记录 edits 与分P管理 parts，dataSource=creator_archive_management，并非单稿播放分析。没有完播率接口，不把账号整体数据冒充单稿完播率。
@@ -122,7 +122,24 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 
 ## 输出与退出码
 
-`--json` 输出单行 `{schemaVersion:1,command,ok,result}`；失败为 `{schemaVersion:1,command,ok:false,error:{code,message}}`。未指定 JSON 时成功输出缩进对象，错误写 stderr。帮助与版本是文本且不创建用户状态、不安装依赖。退出码：0 成功，1 后端/业务/内部失败，2 参数错误，3 写保护或认证失败，4 审计失败，130/143 中断。
+`--json` 输出单行 `{schemaVersion:1,command,ok,result}`；失败为 `{schemaVersion:1,command,ok:false,error:{code,message}}`。参数解析阶段失败时 command 可能是 null，message 也可能是解析器英文原文，不能假定总是中文或总有命令名。未指定 JSON 时成功输出缩进对象，错误写 stderr。帮助与版本是文本且不创建用户状态、不安装依赖。
+
+退出码：0 成功，1 后端/业务/内部失败，2 参数错误，3 写保护或认证失败，4 审计失败，5 风控，130/143 中断。
+
+`error.code` 全集与处理方式：
+
+| code | 退出码 | 含义与处理 |
+| --- | --- | --- |
+| VALIDATION / USAGE | 2 | 参数不合法；修正参数后重试，不算后端问题 |
+| AUTH | 3 | 未登录或凭证失效；先 auth status，不要重试到成功为止 |
+| WRITE_DISABLED | 3 | 未开 writesEnabled 或本次没传 confirm；不是权限 bug |
+| AUDIT | 4 | 审计写入失败；操作可能未执行或状态未知，人工核对 |
+| BACKEND | 1 | 后端返回体异常或网络失败；只读可稍后重试，写操作不得自动重试 |
+| BUSINESS | 1 | 后端业务失败（error/ok:false/success:false）；按消息处理，不重试 |
+| UNKNOWN_STATE | 1 | 写结果未知；必须人工核对，不自动重试 |
+| RISK_CONTROL | 5 | B 站风控（HTTP 412 或业务码 -352）；停止操作，不要换参数硬试 |
+| STREAM_ONLY | 2 | 长期运行命令不能进 JSONL 或 application |
+| INTERNAL | 1 | CLI 内部错误；记录并报告，不重试 |
 
 ## JSONL 批处理
 
@@ -148,7 +165,7 @@ JSONL 不放大写权限：每条写请求仍需针对本次目标与正文的�
 
 ## 状态目录与凭证
 
-`BILIBILI_SKILL_HOME` 可指定独立状态目录；默认沿用 Windows 的 `%APPDATA%/bilibili-skill`、其他系统的 `$XDG_CONFIG_HOME/bilibili-skill` 或 `~/.config/bilibili-skill`。`bilibili-skill` 是 1.0 起的兼容目录名，本版本未改名，避免已有凭证和状态失联。不迁移其他工具目录中的凭证。doctor 只检查凭证文件是否存在，不读取正文；环境存在性不等于网络和账号状态可用。
+`BILIBILI_SKILL_HOME` 可指定独立状态目录；默认沿用 Windows 的 `%APPDATA%/bilibili-skill`、其他系统的 `$XDG_CONFIG_HOME/bilibili-skill` 或 `~/.config/bilibili-skill`。`bilibili-skill` 是 1.0 起的兼容目录名，本版本未改名，避免已有凭证和状态失联。不迁移其他工具目录中的凭证。doctor 只检查凭证文件是否存在，不读取正文；环境存在性不等于网络和账号状态可用。`config get` 不接受参数，整包返回 `{writesEnabled,mentionName,dmRecipientUid}`；改写用 `config set --key <writesEnabled|mentionName|dmRecipientUid> --value <值>`。
 
 凭证不读取、不打印、不概述、不复制、不迁移，不从 DSH 或浏览器导入。bridge token 仅从环境变量获取，不进入 argv、schema、状态输出或正文。
 

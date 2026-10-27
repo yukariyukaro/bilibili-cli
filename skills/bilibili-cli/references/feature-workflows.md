@@ -17,7 +17,7 @@ bilibili danmaku list --bvid BV1qknH61EoH --page 1 --segment 1 --num 30 --json
 ~~~
 
 2. snapshot 的 images 是快照图地址，index 是时间索引；仅拿到URL不能说已看懂画面。summary 的 available=false 表示没有可用官方AI总结，需说明 reason；true 才依据 summary/outline总结，标明是平台AI结果而非作者逐字口述。
-3. 弹幕结果读 items 的 text/timeMs/dmid；timeMs单位毫秒。segment=1是第一个6分钟段，不是“第1秒”，page是分P。`video info` 的 stat.danmaku 是整条视频范围的历史弹幕总数，和单段 count 不可直接比较；某段为空只说明该 6 分钟区间没有弹幕，不代表整条视频没有，可用 ceil(duration/360) 估算共有几段再逐段查询（每次一次只读调用）。若用户只要前120秒，在实际返回样本中按 timeMs≤120000 筛选并排序；num上限100且可能truncated，不能承诺拿到全部或最早的弹幕。给实际条数和样本范围，不用评论顶替。
+3. 弹幕结果读 items 的 text/timeMs/dmid；timeMs单位毫秒。segment=1是第一个6分钟段，不是“第1秒”，page是分P。count 是本次返回条数，segmentTotal 是该 6 分钟段的弹幕总数，truncated 表示 segmentTotal>count；items 不保证按 timeMs 排序，要按时间展示时先自行排序。`video info` 的 stat.danmaku 是整条视频范围的历史计数，和单段 segmentTotal 不可直接比较；某段为空只说明该 6 分钟区间没有可读弹幕，不代表整条视频没有，可用 ceil(duration/360) 估算共有几段再逐段查询（每次一次只读调用）。若用户只要前120秒，在实际返回样本中按 timeMs≤120000 筛选并排序；num上限100且可能truncated，不能承诺拿到全部或最早的弹幕。给实际条数和样本范围，不用评论顶替。
 4. 需要作者口述时另读 video subtitle（需先查登录）；无字幕就说明无有效依据，本CLI没有ASR兜底。不要把字幕、官方总结、评论与自己的推断混为一谈。
 
 想看自己是否已点赞/投币/收藏，先检查登录后运行：
@@ -26,7 +26,9 @@ bilibili danmaku list --bvid BV1qknH61EoH --page 1 --segment 1 --num 30 --json
 bilibili video relation --bvid BV1qknH61EoH --json
 ~~~
 
-返回 liked/coins/favorited；它不是相关推荐。video toview 是添加或移除稍后再看，必须独立写确认，**不能用来查询队列**。
+返回顶层 liked/coins/favorited，并附带嵌套 result{like,dislike,coin,favorite,season_fav,attention}；以顶层字段为准，attention 的语义平台未公开定义，不要据此断言“已关注”。它不是相关推荐。video toview 是添加或移除稍后再看，必须独立写确认，**不能用来查询队列**。
+
+`video info` 的常用字段：title、author（UP 名）、duration（**秒**）、pages（**分P数**，不是弹幕分段数）、tags、stat{view,danmaku,reply,favorite,coin,like,share}。分P与 6 分钟弹幕段是两套编号，不要混用；stat 是平台计数，不等于可读列表条数。
 
 ## UP 投稿动态收藏与合集
 

@@ -224,9 +224,14 @@ export function createSocialHandlers(getCredential: GetCredential): Record<strin
       const raw: unknown = await get_video_favorite_list_content(mediaId, { page, keyword, credential: getCredential(dir, false) })
       const data = record(raw, 'favorite_content')
       const info = record(data.info, 'favorite_content.info')
-      const items = recordList(data.medias, 'favorite_content.medias')
-      if (typeof data.has_more !== 'boolean' && data.has_more !== 0 && data.has_more !== 1) backend('favorite_content.has_more 无效')
-      return { mediaId, page, pageSize: 20, count: Math.min(num, items.length), items: items.slice(0, num), pageItems: items, info, hasMore: Boolean(data.has_more) }
+      // 空收藏夹上游不返回 medias/has_more：这是「本页没有内容」，不是格式错误。
+      const medias = data.medias === undefined || data.medias === null ? [] : data.medias
+      const items = recordList(medias, 'favorite_content.medias')
+      const hasMoreRaw = data.has_more === undefined ? 0 : data.has_more
+      if (typeof hasMoreRaw !== 'boolean' && hasMoreRaw !== 0 && hasMoreRaw !== 1) backend('favorite_content.has_more 无效')
+      const hasMore = Boolean(hasMoreRaw)
+      const view = { mediaId, page, pageSize: 20, count: Math.min(num, items.length), items: items.slice(0, num), pageItems: items, info, hasMore }
+      return items.length === 0 && !hasMore ? { ...view, empty: true, reason: 'NO_DATA' } : view
     },
     favorite_create: async (dir, p) => {
       const title = text(p, 'title', 80), description = text(p, 'description', 500, ''), private_ = flag(p, 'private')

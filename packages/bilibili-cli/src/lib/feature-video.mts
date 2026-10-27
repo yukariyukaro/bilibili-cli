@@ -229,7 +229,8 @@ export function createVideoHandlers(getCredential: (dir: string, required: boole
       const result: unknown = await v.get_danmakus({ cid, from_seg: segment - 1, to_seg: segment - 1 })
       const all = list(result, 'danmakus').map(danmakuItem)
       const items = all.slice(0, num)
-      return { bvid: videoId(p), cid, page, segment, items, count: items.length, segmentCount: all.length, truncated: all.length > items.length }
+      // segmentTotal 是该 6 分钟段内的弹幕总数（不是段数）；count 仅表示本次返回条数。
+      return { bvid: videoId(p), cid, page, segment, items, count: items.length, segmentTotal: all.length, truncated: all.length > items.length }
     },
     async danmaku_send(dir, p) {
       const page = integer(p, 'page', 1)
