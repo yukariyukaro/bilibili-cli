@@ -79,6 +79,11 @@ export function createApplication(overrides: ApplicationOverrides = {}): Applica
         content: readFileSync(join(root, 'SKILL.md'), 'utf8'),
       }
     }
+    if (name === 'bridge console get' || name === 'bridge console set') {
+      const { consoleGet, consoleSet } = await import('./bridge/console-command.mjs')
+      const { dir } = getContext()
+      return name === 'bridge console get' ? consoleGet(args, dir) : consoleSet(args, dir)
+    }
     if (name === 'bridge status' || name === 'bridge stop') {
       const control: BridgeControlName = name === 'bridge status' ? 'status' : 'stop'
       const { executeBridgeControl } = await import('./bridge/control.mjs')

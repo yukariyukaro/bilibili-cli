@@ -69,6 +69,30 @@ export const commands: CommandDefinition[] = [
   },
   { name: 'bridge status', description: '读取已运行 bridge 的有限状态', fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json') } },
   { name: 'bridge stop', description: '请求已运行 bridge 优雅停止', fields: { statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json') } },
+  {
+    name: 'bridge console get',
+    description: '读取本机控制台配置（定时任务、下次执行时间与 revision）',
+    fields: {
+      configPath: string('控制台配置文件路径；默认 bridge/console.json'),
+      statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json'),
+    },
+  },
+  {
+    name: 'bridge console set',
+    description: '修改本机控制台配置（定时任务、刷视频与任务指令）；保存后需重启 bridge 才生效',
+    fields: {
+      configPath: string('控制台配置文件路径；默认 bridge/console.json'),
+      statePath: string('bridge 状态文件路径；默认账号目录内 bridge/state.json'),
+      expectRevision: string('期望的配置 revision；与实际不一致时拒绝写入，避免覆盖别的页面或进程的修改'),
+      scheduleEnabled: { type: 'boolean', description: '是否启用定时任务' },
+      scheduleTime: string('每日执行时间，24 小时制 HH:MM', { pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }),
+      scheduleTimeZone: string('IANA 时区，例如 Asia/Shanghai', { pattern: '^[A-Za-z][A-Za-z0-9_+-]*(?:/[A-Za-z0-9_+-]+)*$' }),
+      scheduleWeekdays: string('每周执行日，1=周一 … 7=周日，逗号分隔', { pattern: '^[1-7](?:,[1-7])*$' }),
+      scrollEnabled: { type: 'boolean', description: '刷视频任务开关；关闭时即使定时开启也不会执行' },
+      agentPrompt: string('交给外部 agent 的任务指令', { maxLength: 8000 }),
+      agentSessionKey: string('外部 agent 的会话标识'),
+    },
+  },
 ]
 
 export function validate(definition: CommandDefinition, input: unknown, cli = false): ValidatedArgs {

@@ -244,7 +244,7 @@ await check('真实分组帮助、schema 和技能发现均无用户状态副作
   const schema = json(['schema']).result
   const originalNames = ['auth login start', 'auth login poll', 'auth status', 'video search', 'video info', 'video subtitle', 'video hot', 'comment list', 'comment thread', 'comment create', 'comment delete', 'user info', 'user relation', 'inbox', 'dm status', 'dm read', 'dm send', 'config get', 'config set', 'doctor', 'schema', 'skills list', 'skills read']
   const features = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'features-2.1.0.json'), 'utf8'))
-  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, ...features.map(c => c.name), 'bridge run', 'bridge web', 'bridge status', 'bridge stop'].sort())
+  assert.deepEqual(schema.commands.map((c) => c.name).sort(), [...originalNames, ...features.map(c => c.name), 'bridge run', 'bridge web', 'bridge status', 'bridge stop', 'bridge console get', 'bridge console set'].sort())
   assert.deepEqual(schema.commands.filter(c => features.some(f => f.name === c.name)), features, '新增命令的独立快照必须对齐')
   assert.equal(schema.version, sourceManifest.version)
   const legacyContract = JSON.parse(readFileSync(join(source, 'test', 'contracts', 'commands-1.0.0.json'), 'utf8'))
@@ -294,6 +294,30 @@ await check('真实分组帮助、schema 和技能发现均无用户状态副作
   assert.equal(stale.outdated, true, '旧副本必须被标记为 outdated')
   assert.equal(staleDoctor.skill.updateAvailable, true, '存在旧副本时 updateAvailable 必须为 true')
   rmSync(fakeSkill, { recursive: true, force: true })
+})
+
+await check('bridge console get/set 可无浏览器读写定时任务，并拒绝过期 revision', () => {
+  const configPath = join(temp, 'console-cli', 'console.json')
+  const before = json(['bridge', 'console', 'get', '--config-path', configPath]).result
+  assert.equal(before.config.schedule.enabled, false, '默认不启用定时任务')
+  assert.equal(before.active, false)
+  assert.equal(before.nextRun, null)
+  assert.match(String(before.revision), /^[0-9a-f]{64}$/)
+  const written = json(['bridge', 'console', 'set', '--config-path', configPath, '--schedule-enabled', '--schedule-time', '07:30', '--schedule-time-zone', 'Asia/Shanghai', '--schedule-weekdays', '1,3,5']).result
+  assert.equal(written.config.schedule.enabled, true)
+  assert.equal(written.config.schedule.time, '07:30')
+  assert.deepEqual(written.config.schedule.weekdays, [1, 3, 5])
+  assert.equal(written.active, true, '定时与刷视频都开启时才 active')
+  assert.ok(written.nextRun, '启用后必须给出下一次执行时间')
+  assert.equal(written.previousRevision, before.revision)
+  const conflict = json(['bridge', 'console', 'set', '--config-path', configPath, '--expect-revision', 'deadbeef', '--schedule-time', '08:00'], 2)
+  assert.equal(conflict.ok, false)
+  assert.equal(conflict.error.code, 'CONFLICT')
+  const after = json(['bridge', 'console', 'get', '--config-path', configPath]).result
+  assert.equal(after.config.schedule.time, '07:30', '冲突写入不得落地')
+  const empty = json(['bridge', 'console', 'set', '--config-path', configPath], 2)
+  assert.equal(empty.ok, false, '不提供任何字段时必须报参数错误')
+  assert.equal(empty.error.code, 'VALIDATION')
 })
 
 await check('文档一致性：单一安装入口、无 npx 运行 CLI、命令表与 schema 对齐', () => {

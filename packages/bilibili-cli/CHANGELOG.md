@@ -2,6 +2,17 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
+## 2.2.0 — 2026-10-27
+
+### 新增与变更
+
+- **新增 `bridge console get` / `bridge console set`**：Agent 不必打开浏览器就能读写本机控制台的 `console.json`，用于设定自动化定时任务。
+  - `get` 返回 `revision`、`active`（定时与刷视频同时开启）、`nextRun`、`slot` 与完整配置；`set` 只改传入字段，支持 `--schedule-enabled/--schedule-time/--schedule-time-zone/--schedule-weekdays/--scroll-enabled/--agent-prompt/--agent-session-key/--expect-revision`。
+  - 写入沿用控制台的 0600 原子写与 revision 乐观并发：revision 不一致返回 `CONFLICT`（exit 2），不覆盖别人的修改。
+  - 边界：写配置不会启停或热改正在运行的 bridge，需重启 `bridge run` 后生效；命令行开关只能开启布尔字段，关闭请走 JSONL 布尔参数。
+  - 回归：`npm test` 覆盖默认值、开启定时后的 `nextRun`、revision 冲突不落地与空参数报错。
+- Skill 文档升到 2.2.0（`requiresCli: 2.2`），Bridge 章节补充“Agent 用 CLI 设定定时任务”的用法与边界。
+
 ## 2.1.1 — 2026-10-27
 
 ### 新增与变更

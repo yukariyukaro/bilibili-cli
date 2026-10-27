@@ -29,7 +29,7 @@ export const LEGACY_COMMANDS = [
   'skills read',
 ]
 
-export const BRIDGE_COMMANDS = ['bridge run', 'bridge web', 'bridge status', 'bridge stop']
+export const BRIDGE_COMMANDS = ['bridge run', 'bridge web', 'bridge status', 'bridge stop', 'bridge console get', 'bridge console set']
 export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS, ...FEATURE_COMMANDS.map(command => command.name)]
 
 export const BRIDGE_RUN_FIELDS = ['configPath', 'ownerUids', 'pollMs', 'statePath', 'url']

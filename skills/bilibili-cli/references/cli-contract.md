@@ -14,7 +14,7 @@ bilibili doctor --json
 
 仅在用户同意后执行全局安装；不得静默安装或升级。若用户不同意或环境无法安装，说明 CLI 依赖未满足并停止调用，不要自动切换到 npx，也不要使用源码脚本冒充已安装 CLI。只使用官方包名 `@yukariyukaro/bilibili-cli`。Skill 更新与 CLI 更新相互独立；更新 CLI 前先取得用户同意，更新后重新核验版本与依赖。`npx skills add/update/remove` 只管理 Skill 文件，不是 CLI 的运行方式。
 
-`doctor` 与 `skills list` 报告 CLI 及其随包文档的版本（`skill.docVersion`/`skill.docPath` 指向 npm 包内那份 SKILL.md）。本文件版本 2.1.1，要求 CLI 2.1.x；`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。
+`doctor` 与 `skills list` 报告 CLI 及其随包文档的版本（`skill.docVersion`/`skill.docPath` 指向 npm 包内那份 SKILL.md）。本文件版本 2.2.0，要求 CLI 2.2.x；`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。
 
 `doctor.skill.installed[]` 是 CLI 扫描到的本机 Skill 副本（`~/.agents/skills/bilibili-cli`、`~/.claude/skills/bilibili-cli`、当前目录同名路径，以及环境变量 `BILIBILI_SKILL_DIR` 指定的目录），每项为 `{path,docVersion,requiresCli,matchesCli,outdated}`；`skill.updateAvailable=true` 表示至少一份副本比随包文档旧，此时应提示用户升级 Skill 而不是升级 CLI。扫描不到副本时数组为空，需用本文件 frontmatter 手工比较。下文示例均使用 `bilibili <命令> [参数]`。
 
@@ -57,6 +57,8 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 | `bilibili bridge web` | 长期本机服务；--port 默认9820；--config-path、--state-path |
 | `bilibili bridge status` | 有限读；可选 --state-path |
 | `bilibili bridge stop` | 本地进程控制；可选 --state-path |
+| `bilibili bridge console get` | 读控制台配置与 revision；可选 --config-path、--state-path |
+| `bilibili bridge console set` | 改定时任务/刷视频/任务指令；--schedule-enabled、--schedule-time、--schedule-time-zone、--schedule-weekdays、--scroll-enabled、--agent-prompt、--agent-session-key、--expect-revision |
 | `bilibili video relation` | 读；查看与视频的点赞、收藏与投币关系；--bvid 必填 |
 | `bilibili video like` | 写；点赞或取消点赞视频；--bvid 必填；--undo 默认false |
 | `bilibili video coin` | 写；投1–2枚真实硬币，不可退回；默认只投1枚；--bvid 必填；--num 1–2 默认1；--like 默认false |

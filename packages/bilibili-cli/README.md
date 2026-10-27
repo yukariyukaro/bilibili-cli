@@ -22,6 +22,7 @@
 | 配置与诊断 | `config get`、`config set`、`doctor`、`schema` |
 | 技能 | `skills list`、`skills read`（分别报告 CLI 版本与 Skill 文档版本） |
 | 监听 | `bridge run`、`bridge web`、`bridge status`、`bridge stop` |
+| 控制台配置（Agent 设定定时任务） | `bridge console get`、`bridge console set` |
 
 ### 2.1 新增能力
 

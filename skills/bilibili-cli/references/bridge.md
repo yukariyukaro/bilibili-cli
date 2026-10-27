@@ -33,6 +33,20 @@ bilibili bridge web
 - 控制台的「任务指令」与「会话标识」会随刷视频帧（含进程内「立即执行」与定时触发）一并交给外部 Agent，作为偏好文本出现在该帧内容与 `session_key` 中；它们只表达偏好，不构成发送、删除或开启写开关的授权。
 - 控制台策略不能代替用户对准确目标和正文的逐次确认。当前自动放行限制及安全用法见下方「数据与写入边界」。
 
+## 用 CLI 设定定时任务（Agent 不需要浏览器）
+
+控制台配置就是 `console.json`（默认与 bridge 状态文件同目录，0600）。Agent 可以直接读写它，不依赖页面、不需要会话令牌：
+
+~~~bash
+bilibili bridge console get --json
+bilibili bridge console set --schedule-enabled --schedule-time 09:00 --schedule-time-zone Asia/Shanghai --schedule-weekdays 1,2,3,4,5 --agent-prompt "挑选值得看的视频，基于字幕与评论写日报" --json
+~~~
+
+- `set` 只改传入的字段，其余保留；支持 `--schedule-enabled`、`--schedule-time`（HH:MM）、`--schedule-time-zone`（IANA）、`--schedule-weekdays`（1=周一…7=周日）、`--scroll-enabled`、`--agent-prompt`、`--agent-session-key`、`--expect-revision`。
+- 返回 `revision`、`active`（定时与刷视频同时开启才为 true）、`nextRun`、`slot` 与完整配置；`CONFLICT` 表示配置被其他页面或进程改过，重新 `get` 拿 revision 再写，不要盲目重试。
+- 命令行开关只能“开启”布尔字段；要关闭（如 `scheduleEnabled:false`）用 JSONL 传布尔：`{"command":"bridge console set","args":{"scheduleEnabled":false}}`。
+- 写文件不会自动启停 bridge，也不会热改正在运行的实例；重启 `bridge run`（或重开控制台）后生效。控制台页面此时仍开着的话，保存会得到 revision 冲突，重新载入即可看到新值。
+
 ## run：长期事件流
 
 `bilibili bridge run` 以前台独立进程运行，stdout 输出生命周期 JSONL：

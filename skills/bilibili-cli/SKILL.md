@@ -2,8 +2,8 @@
 name: bilibili-cli
 description: 通过 bilibili CLI 搜索 B 站视频、读字幕和官方 AI 总结、快照、弹幕、评论、UP 投稿、动态、公开收藏与合集，查询账号通知、私信和本人创作数据。扫码登录、点赞收藏投币三连、发送或删除内容、管理旧版系列及上传封面时也使用此 Skill；所有写操作逐次确认。需要长期监听或本机控制台时使用 bridge。
 metadata:
-  version: "2.1.1"
-  requiresCli: "2.1"
+  version: "2.2.0"
+  requiresCli: "2.2"
   requires:
     bins: ["bilibili"]
 ---
@@ -14,7 +14,7 @@ metadata:
 
 ## 1. 准备与发现
 
-- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖与版本。本文件版本 2.1.1，要求 CLI 2.1.x。
+- 检查 `bilibili --version`，再用 `bilibili doctor --json` 核对依赖与版本。本文件版本 2.2.0，要求 CLI 2.2.x。
 - **每次开始任务都要看 Skill 是否需要更新**：`doctor` 的 `skill.installed[]` 是 CLI 扫描到的本机 Skill 副本（`~/.agents/skills/bilibili-cli`、`~/.claude/skills/bilibili-cli`、当前目录同名路径，以及 `BILIBILI_SKILL_DIR`）；`skill.updateAvailable=true` 表示至少一份比 CLI 随包文档旧。
 - `skill.updateAvailable=true` 或某份 `installed[].outdated=true` 时：**主动告诉用户**「你加载的 Skill 是 X，本机 CLI 随包文档是 Y，Skill 落后了」，给出升级方式（见 [Skill 安装与升级](references/skill-upgrade.md)）并等用户决定；不自动升级，也不因此降级 CLI 或改用旧命令名。升级前仍按本文件执行，但只用 `bilibili schema --json` 与 `--help` 确认过的命令。
 - `skill.installed` 为空（扫描不到副本，例如宿主把 Skill 装在别处）时，用本文件 frontmatter 的 `metadata.version` / `metadata.requiresCli` 与 `skill.docVersion` / `skill.requiresCli` 手工比较；本文件更低就按上一条提示升级。
@@ -69,6 +69,7 @@ metadata:
 ## 5. 按需参考
 
 - 用户明确需要长期监听或可视化配置时才读 [Bridge 监听](references/bridge.md) 与 [Bridge 契约](references/cli-contract.md#bridge-子系统)，普通内容查询不启动服务。
+- 用户让你“设定/调整定时任务”时不需要浏览器：先 `bilibili bridge console get --json` 拿 revision，再用 `bilibili bridge console set` 写配置，成功后提示用户重启 bridge 才生效；布尔字段要关掉时用 `bilibili --jsonl` 传 `false`。
 - `bridge run/web` 是长期进程，不能放 JSONL；本机控制台仅127.0.0.1，token链接不分享。关闭页面不停止服务，使用同状态路径的 status/stop。
 - Bridge 的 owner 策略会自动放行，不是逐次人工审批；本 Skill 使用 off/draft 并保持 dry-run，不启用自动实发。“已派发”仅指写入本地管道，不代表完成或送达。
 - [安装与升级](references/skill-upgrade.md)；仅准备专用测试环境时读 [测试账号准备](references/test-account-setup.md)。
