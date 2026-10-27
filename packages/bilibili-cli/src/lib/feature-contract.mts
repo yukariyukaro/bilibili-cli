@@ -1,0 +1,1077 @@
+import type { CommandDefinition } from './cli-types.mjs'
+
+/** 17.5 API 对应的新增 CLI 契约；历史23条命令保持原样。 */
+export const featureCommands: CommandDefinition[] = [
+  {
+    "name": "video relation",
+    "description": "查看与视频的点赞、收藏与投币关系",
+    "tool": "video_relation",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      }
+    }
+  },
+  {
+    "name": "video like",
+    "description": "点赞或取消点赞视频",
+    "tool": "video_like",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "video coin",
+    "description": "投1–2枚真实硬币，不可退回；默认只投1枚",
+    "tool": "video_coin",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "num": {
+        "type": "integer",
+        "description": "实际支出硬币数（不可退回）",
+        "minimum": 1,
+        "maximum": 2,
+        "default": 1
+      },
+      "like": {
+        "type": "boolean",
+        "description": "同时点赞",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "video favorite",
+    "description": "将视频加入/移出明确的收藏夹",
+    "tool": "video_favorite",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "mediaIds": {
+        "type": "string",
+        "description": "收藏夹 ID，逗号分隔的正安全整数，最多20个",
+        "required": true,
+        "pattern": "^[1-9][0-9]*(?:,[1-9][0-9]*)*$",
+        "maxLength": 400
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "video triple",
+    "description": "一键三连，可能支出真实硬币且不可退回",
+    "tool": "video_triple",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "video snapshot",
+    "description": "获取指定分 P 的快照/缩略图地址；不下载视频",
+    "tool": "video_snapshot",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      }
+    }
+  },
+  {
+    "name": "video summary",
+    "description": "查询B站已有AI总结，不可用时明确说明",
+    "tool": "video_summary",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      }
+    }
+  },
+  {
+    "name": "video toview",
+    "description": "加入/移出稍后再看列表",
+    "tool": "video_toview",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "danmaku list",
+    "description": "读取指定分 P 的一段弹幕（每段6分钟，限制返回条数）",
+    "tool": "danmaku_list",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "segment": {
+        "type": "integer",
+        "description": "6分钟段序号（从1开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "返回数量",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 30
+      }
+    }
+  },
+  {
+    "name": "danmaku send",
+    "description": "在指定毫秒位置发送经本次确认的弹幕",
+    "tool": "danmaku_send",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "text": {
+        "type": "string",
+        "description": "最终弹幕正文",
+        "required": true,
+        "maxLength": 100
+      },
+      "timeMs": {
+        "type": "integer",
+        "description": "视频内时间点，整数毫秒",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "color": {
+        "type": "string",
+        "description": "6位十六进制颜色，不带#",
+        "pattern": "^[0-9a-fA-F]{6}$",
+        "default": "ffffff"
+      },
+      "mode": {
+        "type": "string",
+        "description": "显示方式",
+        "enum": [
+          "scroll",
+          "top",
+          "bottom"
+        ],
+        "default": "scroll"
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "danmaku recall",
+    "description": "撤回本人弹幕（精确字符串ID），结果未知不重试",
+    "tool": "danmaku_recall",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "dmid": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "danmaku like",
+    "description": "点赞/取消点赞弹幕",
+    "tool": "danmaku_like",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "dmid": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "comment like",
+    "description": "点赞/取消点赞评论",
+    "tool": "comment_like",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "rpid": {
+        "type": "integer",
+        "description": "评论 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "comment pin",
+    "description": "置顶/取消置顶评论，需要稿件作者权限",
+    "tool": "comment_pin",
+    "write": true,
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      },
+      "rpid": {
+        "type": "integer",
+        "description": "评论 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "user videos",
+    "description": "读取UP公开投稿，可按关键词与排序筛选",
+    "tool": "user_videos",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "返回数量",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 10
+      },
+      "keyword": {
+        "type": "string",
+        "description": "关键词"
+      },
+      "order": {
+        "type": "string",
+        "description": "排序",
+        "enum": [
+          "pubdate",
+          "click",
+          "stow"
+        ],
+        "default": "pubdate"
+      }
+    }
+  },
+  {
+    "name": "emoji list",
+    "description": "读取账号可用表情包列表",
+    "tool": "emoji_list",
+    "fields": {
+      "business": {
+        "type": "string",
+        "description": "表情使用场景",
+        "enum": [
+          "reply",
+          "dynamic"
+        ],
+        "default": "reply"
+      }
+    }
+  },
+  {
+    "name": "emoji detail",
+    "description": "读取指定表情包详情",
+    "tool": "emoji_detail",
+    "fields": {
+      "ids": {
+        "type": "string",
+        "description": "表情包 ID，逗号分隔的正安全整数，最多20个",
+        "required": true,
+        "pattern": "^[1-9][0-9]*(?:,[1-9][0-9]*)*$",
+        "maxLength": 400
+      },
+      "business": {
+        "type": "string",
+        "description": "表情使用场景",
+        "enum": [
+          "reply",
+          "dynamic"
+        ],
+        "default": "reply"
+      }
+    }
+  },
+  {
+    "name": "emoji add",
+    "description": "添加一个表情包到账号面板",
+    "tool": "emoji_add",
+    "write": true,
+    "fields": {
+      "packageId": {
+        "type": "integer",
+        "description": "表情包 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "dynamic list",
+    "description": "读取UP空间动态；省略uid读本人，offset为字符串游标",
+    "tool": "dynamic_list",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "UP UID（省略时要求登录并读本人）",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "num": {
+        "type": "integer",
+        "description": "返回数量",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 10
+      },
+      "offset": {
+        "type": "string",
+        "description": "上一页返回的offset游标",
+        "maxLength": 80
+      }
+    }
+  },
+  {
+    "name": "dynamic info",
+    "description": "读取动态详情，ID始终用字符串",
+    "tool": "dynamic_info",
+    "fields": {
+      "id": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      }
+    }
+  },
+  {
+    "name": "dynamic post",
+    "description": "发送经确认的纯文字动态（不含图/投票）",
+    "tool": "dynamic_post",
+    "write": true,
+    "fields": {
+      "text": {
+        "type": "string",
+        "description": "最终动态正文",
+        "required": true,
+        "maxLength": 1000
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "dynamic delete",
+    "description": "删除本人动态，可能不可恢复",
+    "tool": "dynamic_delete",
+    "write": true,
+    "fields": {
+      "id": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "dynamic like",
+    "description": "点赞/取消点赞动态",
+    "tool": "dynamic_like",
+    "write": true,
+    "fields": {
+      "id": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "dynamic top",
+    "description": "置顶/取消置顶本人动态",
+    "tool": "dynamic_top",
+    "write": true,
+    "fields": {
+      "id": {
+        "type": "string",
+        "description": "十进制字符串 ID；19 位 ID 必须保留字符串，不能转 number",
+        "required": true,
+        "pattern": "^[1-9][0-9]{0,39}$",
+        "maxLength": 40
+      },
+      "undo": {
+        "type": "boolean",
+        "description": "取消该操作；不是授权",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "favorite list",
+    "description": "读取UP创建的收藏夹；省略uid读取本人",
+    "tool": "favorite_list",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "UP UID（省略时要求登录）",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      }
+    }
+  },
+  {
+    "name": "favorite content",
+    "description": "读取收藏夹当前页（接口固定20条）",
+    "tool": "favorite_content",
+    "fields": {
+      "mediaId": {
+        "type": "integer",
+        "description": "收藏夹 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "返回数量",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 10
+      },
+      "keyword": {
+        "type": "string",
+        "description": "关键词"
+      }
+    }
+  },
+  {
+    "name": "favorite create",
+    "description": "创建收藏夹",
+    "tool": "favorite_create",
+    "write": true,
+    "fields": {
+      "title": {
+        "type": "string",
+        "description": "收藏夹名",
+        "required": true,
+        "maxLength": 80
+      },
+      "description": {
+        "type": "string",
+        "description": "简介",
+        "maxLength": 500
+      },
+      "private": {
+        "type": "boolean",
+        "description": "设为私密",
+        "default": false
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "favorite delete",
+    "description": "删除一个收藏夹，可能不可恢复",
+    "tool": "favorite_delete",
+    "write": true,
+    "fields": {
+      "mediaId": {
+        "type": "integer",
+        "description": "收藏夹 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "season list",
+    "description": "读取UP的公开新版合集与旧版series列表",
+    "tool": "season_list",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "season videos",
+    "description": "读取指定新版合集/旧版列表的视频",
+    "tool": "season_videos",
+    "fields": {
+      "uid": {
+        "type": "integer",
+        "description": "用户 UID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "seasonId": {
+        "type": "integer",
+        "description": "合集或series ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "kind": {
+        "type": "string",
+        "description": "类型：season新版合集；series旧列表",
+        "enum": [
+          "season",
+          "series"
+        ],
+        "default": "season"
+      },
+      "page": {
+        "type": "integer",
+        "description": "页码或分 P 序号（从 1 开始）",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 1
+      },
+      "num": {
+        "type": "integer",
+        "description": "返回数量",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 10
+      }
+    }
+  },
+  {
+    "name": "season create",
+    "description": "创建旧版series视频列表（不是新版season）",
+    "tool": "season_create",
+    "write": true,
+    "fields": {
+      "title": {
+        "type": "string",
+        "description": "列表名",
+        "required": true,
+        "maxLength": 80
+      },
+      "description": {
+        "type": "string",
+        "description": "简介",
+        "maxLength": 500
+      },
+      "aids": {
+        "type": "string",
+        "description": "视频 aid，逗号分隔的正安全整数，最多20个",
+        "required": true,
+        "pattern": "^[1-9][0-9]*(?:,[1-9][0-9]*)*$",
+        "maxLength": 400
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "season add",
+    "description": "向旧版series添加视频",
+    "tool": "season_add",
+    "write": true,
+    "fields": {
+      "seriesId": {
+        "type": "integer",
+        "description": "旧版series ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "aids": {
+        "type": "string",
+        "description": "视频 aid，逗号分隔的正安全整数，最多20个",
+        "required": true,
+        "pattern": "^[1-9][0-9]*(?:,[1-9][0-9]*)*$",
+        "maxLength": 400
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "season remove",
+    "description": "从旧版series移出视频",
+    "tool": "season_remove",
+    "write": true,
+    "fields": {
+      "seriesId": {
+        "type": "integer",
+        "description": "旧版series ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "aids": {
+        "type": "string",
+        "description": "视频 aid，逗号分隔的正安全整数，最多20个",
+        "required": true,
+        "pattern": "^[1-9][0-9]*(?:,[1-9][0-9]*)*$",
+        "maxLength": 400
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "season delete",
+    "description": "删除旧版series列表，可能不可恢复",
+    "tool": "season_delete",
+    "write": true,
+    "fields": {
+      "seriesId": {
+        "type": "integer",
+        "description": "旧版series ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  },
+  {
+    "name": "stats overview",
+    "description": "读取本人创作中心数据概览",
+    "tool": "stats_overview",
+    "fields": {}
+  },
+  {
+    "name": "stats fans",
+    "description": "读取本人粉丝数据概览",
+    "tool": "stats_fans",
+    "fields": {}
+  },
+  {
+    "name": "stats video",
+    "description": "读取单稿的章节/编辑历史；不提供完播率",
+    "tool": "stats_video",
+    "fields": {
+      "bvid": {
+        "type": "string",
+        "description": "视频 BV 号",
+        "required": true,
+        "pattern": "^BV[0-9A-Za-z]{10}$"
+      }
+    }
+  },
+  {
+    "name": "upload topics",
+    "description": "读取投稿分区可用话题",
+    "tool": "upload_topics",
+    "fields": {
+      "tid": {
+        "type": "integer",
+        "description": "分区 ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "required": true
+      }
+    }
+  },
+  {
+    "name": "upload missions",
+    "description": "读取投稿活动列表",
+    "tool": "upload_missions",
+    "fields": {
+      "tid": {
+        "type": "integer",
+        "description": "分区 ID（0为全部）",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "default": 0
+      }
+    }
+  },
+  {
+    "name": "upload cover",
+    "description": "上传本地封面至B站图床，不提交稿件（仍是写操作）",
+    "tool": "upload_cover",
+    "write": true,
+    "fields": {
+      "file": {
+        "type": "string",
+        "description": "本地图片文件路径",
+        "required": true,
+        "maxLength": 4096
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "本次准确目标与最终正文已由用户逐次确认；涉及硬币支出的操作，支出也已确认",
+        "default": false
+      },
+      "dryRun": {
+        "type": "boolean",
+        "description": "仅预览；不调用接口、不审计、不授权",
+        "default": false
+      }
+    }
+  }
+]

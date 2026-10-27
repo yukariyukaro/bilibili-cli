@@ -1,5 +1,6 @@
 import type { CommandDefinition, FieldDefinition, IntegerFieldDefinition, StringFieldDefinition, ValidatedArgs } from './cli-types.mjs'
 import { isRecord } from './cli-types.mjs'
+import { featureCommands } from './feature-contract.mjs'
 
 export class CliError extends Error {
   readonly code: string
@@ -20,6 +21,7 @@ const uid: FieldDefinition = { ...integer('用户 UID', 1, Number.MAX_SAFE_INTEG
 const write: Record<string, FieldDefinition> = { confirm: { type: 'boolean', description: '本次准确目标和正文已经用户确认', default: false }, dryRun: { type: 'boolean', description: '仅预览，不调用接口或写审计', default: false } }
 
 export const commands: CommandDefinition[] = [
+  ...featureCommands,
   { name: 'auth login start', description: '生成扫码登录二维码', fields: {} },
   { name: 'auth login poll', description: '轮询一次扫码状态', fields: { key: string('二维码 key', { required: true }) } },
   { name: 'auth status', description: '检查账户登录状态', tool: 'auth_status', fields: {} },
@@ -95,6 +97,15 @@ export function validate(definition: CommandDefinition, input: unknown, cli = fa
   }
   if (definition.name === 'comment create' && result.root !== undefined && result.rpid === undefined) throw new CliError('VALIDATION', 'root 必须与 rpid 同时使用', 2)
   if (definition.name === 'bridge run') validateBridgeRun(result)
+  for (const key of ['mediaIds', 'ids', 'aids']) {
+    const value = result[key]
+    if (typeof value === 'string') {
+      const ids = value.split(',')
+      if (ids.length > 20 || ids.some(id => !/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id)))) {
+        throw new CliError('VALIDATION', '参数无效：' + key + '（最多20个正安全整数）', 2)
+      }
+    }
+  }
   return result
 }
 

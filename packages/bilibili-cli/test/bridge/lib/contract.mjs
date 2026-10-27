@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+const FEATURE_COMMANDS = JSON.parse(readFileSync(new URL('../../contracts/features-2.1.0.json', import.meta.url), 'utf8'))
 
 // 旧 23 个命令的 name 集合；不把数量写死，避免新增命令时误报。
 export const LEGACY_COMMANDS = [
@@ -28,7 +30,7 @@ export const LEGACY_COMMANDS = [
 ]
 
 export const BRIDGE_COMMANDS = ['bridge run', 'bridge web', 'bridge status', 'bridge stop']
-export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS]
+export const ALL_COMMANDS = [...LEGACY_COMMANDS, ...BRIDGE_COMMANDS, ...FEATURE_COMMANDS.map(command => command.name)]
 
 export const BRIDGE_RUN_FIELDS = ['configPath', 'ownerUids', 'pollMs', 'statePath', 'url']
 export const BRIDGE_STATE_FIELDS = ['statePath']
@@ -49,7 +51,7 @@ export function assertSchemaContract(schema, { version } = {}) {
   assert.deepEqual(
     schema.commands.map((entry) => entry.name).sort(),
     [...ALL_COMMANDS].sort(),
-    'schema 命令集合必须等于旧23个 + bridge四条；skills cleanup 已迁出公开 CLI',
+    'schema 命令集合必须等于旧23个 + bridge四条 + 2.1功能快照；skills cleanup 已迁出公开 CLI',
   )
 
   const run = commandByName(schema, 'bridge run')
