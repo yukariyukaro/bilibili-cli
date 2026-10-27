@@ -103,7 +103,7 @@
 | 调度 | 单时间点 + 时区 + 星期；15 秒检查；日期 journal 先 claim，失败不静默重试 | whale 多作息窗口、复杂调度、跨平台服务管理 |
 | 消息与写保护 | 任务提示远端文本不可信；回复策略 off/owner/draft；写入继续交给 CLI 的确认、写开关与审计 | 完整 durable inbox、consumer ack、撤回/图片/系统消息保留策略 |
 | bridge | 已有 cc-connect WebSocket URL、register/ready、B站私信轮询及 owner 白名单 | cc-connect 全部 card/media/platform 能力；稳定兼容 Draft 协议 |
-| 交付证据 | 本地源码/构建/离线 E2E 记录在 [CONTEXT.md](CONTEXT.md) 与 [路线图](bridge实施路线图.md) | 真实 B站收发、真实 Linux Docker 运行、性能报告；不能把静态 Docker check 当容器 E2E |
+| 交付证据 | 本地源码/构建/离线 E2E 记录在 [路线图](bridge实施路线图.md) 与 [维护规则](AGENTS.md) | 真实 B站收发、真实 Linux Docker 运行、性能报告；不能把静态 Docker check 当容器 E2E |
 
 ## 4. 面向本实现的建议
 

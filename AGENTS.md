@@ -14,7 +14,6 @@
 | 目的 | 文档 |
 | --- | --- |
 | 开发规则、验证要求、安全边界与提交纪律 | [docs/bilibili-cli/AGENTS.md](docs/bilibili-cli/AGENTS.md) |
-| 当前实现、验收证据、已知限制与交接 | [docs/bilibili-cli/CONTEXT.md](docs/bilibili-cli/CONTEXT.md) |
 | 打包、发布、回滚与版本约定 | [docs/bilibili-cli/RELEASE.md](docs/bilibili-cli/RELEASE.md) |
 | 后续阶段与验收边界 | [docs/bilibili-cli/bridge实施路线图.md](docs/bilibili-cli/bridge实施路线图.md) |
 | 产品使用与开发入口 | [packages/bilibili-cli/README.md](packages/bilibili-cli/README.md) |

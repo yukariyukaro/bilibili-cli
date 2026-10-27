@@ -2,7 +2,7 @@
 
 更新时间：2026-10-22
 
-文档归属：本文件与 AGENTS.md、CONTEXT.md 位于 `docs/bilibili-cli/`。2.0.0 起仓库结构为 `packages/bilibili-cli/`（CLI 源码、测试、构建）、`skills/bilibili-cli/`（仅 SKILL.md 与 references）、`docs/bilibili-cli/`（维护者文档）。下文带 `skills/bilibili-cli/src/`、`skills/bilibili-cli/test/` 等前缀的段落是 1.2.0 之前的历史状态记录，不代表当前布局；Markdown 链接按本文件当前位置解析。
+文档归属：本文件与 AGENTS.md 位于 `docs/bilibili-cli/`。2.0.0 起仓库结构为 `packages/bilibili-cli/`（CLI 源码、测试、构建）、`skills/bilibili-cli/`（仅 SKILL.md 与 references）、`docs/bilibili-cli/`（维护者文档）。下文带 `skills/bilibili-cli/src/`、`skills/bilibili-cli/test/` 等前缀的段落是 1.2.0 之前的历史状态记录，不代表当前布局；Markdown 链接按本文件当前位置解析。
 
 > 2.0.0（2026-10-22）变更：公开命令移除 `skills cleanup`，改由维护脚本 `packages/bilibili-cli/scripts/skill-cleanup.mjs` 执行；bridge 改为自举当前 CLI 入口；`doctor` 与 `skills list` 报告 Skill 文档版本。下文“27 条命令”“cleanup 已落地”等描述是变更前的历史状态。
 

@@ -93,7 +93,6 @@ npm run build         # 生成独立发布目录（默认 <Git 根>/release/bili
 | [产品 README](packages/bilibili-cli/README.md) | 使用者：完整命令、安装、升级与安全边界 |
 | [SKILL.md](skills/bilibili-cli/SKILL.md) | Agent：工作流、写授权、启动配置 |
 | [维护规则](docs/bilibili-cli/AGENTS.md) | 维护者：开发与提交纪律 |
-| [上下文](docs/bilibili-cli/CONTEXT.md) | 维护者：实现、验收证据与限制 |
 | [路线图](docs/bilibili-cli/bridge实施路线图.md) | 维护者：后续阶段与验收边界 |
 | [发布说明](docs/bilibili-cli/RELEASE.md) | 维护者：打包、发布与回滚 |
 

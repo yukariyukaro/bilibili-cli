@@ -70,5 +70,4 @@ npm pack                # 源码打包前自动编译
 
 - [产品 README](../../packages/bilibili-cli/README.md)：产品使用与开发入口。
 - [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)：命令、输出与状态语义。
-- [CONTEXT.md](CONTEXT.md)：历史进度与交接；继续工作时先核对当前源码和测试，不将历史记录视为现状。
 - [实施路线图](bridge实施路线图.md)：后续阶段及验收边界；计划不代表已经实现。

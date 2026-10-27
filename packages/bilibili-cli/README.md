@@ -142,7 +142,6 @@ bilibili bridge stop --json
 ## 文档入口
 
 - [维护规则](../../docs/bilibili-cli/AGENTS.md)：适用于本产品的开发与提交纪律。
-- [维护上下文](../../docs/bilibili-cli/CONTEXT.md)：实现、验收证据、限制与交接。
 - [实施路线图](../../docs/bilibili-cli/bridge实施路线图.md)：阶段计划与验收边界；计划不代表已经实现。CLI 与 Skill 的版本报告已落地，`skills status/link` 一键对齐仍属阶段 2.5。
 - [更新日志](CHANGELOG.md) 与 [测试台账](test/bridge/BASELINE.md)。
 
