@@ -129,6 +129,13 @@ export interface SeenEntry {
   at: string | null
 }
 
+/** 已入站的评论目标：notification 与 scroll 共用，root 只对楼中楼回复有意义。 */
+export interface PendingTarget {
+  bvid: string
+  rpid?: number
+  root?: number
+}
+
 export interface PendingEntry {
   id: string
   uid: string
@@ -139,11 +146,52 @@ export interface PendingEntry {
   key: string | null
   skipReason: string | null
   created_at: string | null
+  /** 入站通道：私信或视频评论通知。旧 state 迁移后一律为 dm。 */
+  surface: 'dm' | 'comment'
+  /** 评论目标；私信为 null。 */
+  target: PendingTarget | null
+}
+
+export type NotifyKind = 'at' | 'reply'
+
+export interface NotifyTarget {
+  /** 只支持 video；dynamic/article 会被丢弃并记录原因。 */
+  type: 'video' | 'dynamic' | 'article' | 'unknown'
+  oid: string | null
+  bvid: string | null
+  rpid: number | null
+  root: number | null
+}
+
+/** 归一化后的单条 @ / 回复通知；字段缺失一律用 null，不用 0 冒充。 */
+export interface NotifyItem {
+  id: string
+  kind: NotifyKind
+  time: number | null
+  uid: string
+  name: string
+  text: string
+  target: NotifyTarget
+  uri: string | null
+}
+
+/** 通知分页游标：id 可能是 19 位，统一按十进制字符串保存。 */
+export interface NotifyCursor {
+  id: string | null
+  time: number | null
+  isEnd: boolean
+}
+
+export interface NotifyCursorInput {
+  id: string | null
+  time: number | null
 }
 
 export interface BridgeState {
-  version: 1
+  version: 1 | 2
   conversations: Record<string, Conversation>
+  /** v2 新增；v1 迁移时置 null。 */
+  notifications: { at: NotifyCursor | null; reply: NotifyCursor | null }
   pending: PendingEntry[]
   seen: SeenEntry[]
 }
@@ -151,6 +199,8 @@ export interface BridgeState {
 export interface BilibiliCommentTarget {
   bvid: string
   rpid?: number
+  /** 楼中楼所属根评论；缺省时 CLI 以 rpid 作根。 */
+  root?: number
 }
 
 /**
@@ -162,6 +212,11 @@ export interface BilibiliDmBackend {
   sendDm(uid: string, text: string, options?: { confirm?: boolean }): Promise<unknown>
   videoHot?(num: number): Promise<unknown>
   videoSearch?(keyword: string, num: number): Promise<unknown>
+  videoInfo?(bvid: string): Promise<unknown>
   comments?(bvid: string, num: number): Promise<unknown[]>
   postComment?(target: BilibiliCommentTarget, text: string, options?: { confirm?: boolean }): Promise<unknown>
+  /** 评论区 @ 通知；缺失时评论通知通道显式拒绝，不静默降级。 */
+  inboxAt?(cursor: NotifyCursorInput): Promise<unknown>
+  /** 收到的回复通知。 */
+  inboxReply?(cursor: NotifyCursorInput): Promise<unknown>
 }

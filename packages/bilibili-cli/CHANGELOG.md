@@ -2,6 +2,44 @@
 
 遵循语义化版本。未验证、未发布的变更保留在 Unreleased，不用更新日志代替测试证据。
 
+## 2.3.0 — 2026-10-27
+
+### 新增与变更
+
+- **bridge 接入评论区 @ / 回复通知**：别人在评论区 @ 你、或回复你的评论时，bridge 轮询 `inbox at|reply`，把通知连同准确的 `bvid + rpid + root` 交给 agent，回复经 `comment create` 落成楼中楼。
+  - 新配置 `reply.commentWatch`：`kinds`（at/reply）、`pollMs`（默认 60000，独立于私信轮询）、`maxPerPoll`（默认 5）、`minGapMs`（默认 30000）、`maxAgeMinutes`（默认 1440）、`allowUids`、`onlyOwnVideos`（默认 true）。`reply.commentPolicy=off` 时**完全不轮询通知**；`draft` 只写 `<state>.comment-drafts.jsonl`（含目标 ID），不发送。
+  - 状态升到 v2：新增 `notifications` 游标与 pending 的 `surface/target`；v1 状态可读并自动迁移（旧 pending 记为 `dm`，不丢事件）。
+  - 去重：通知 ID 与 `cmt:<bvid>:<rpid>` 双重去重，重启后不重复回复；`maxPerPoll` 截断时游标只推进到已处理项，剩余下一轮继续。
+  - 边界：通知里的 `oid`(aid) 在 bridge 内换算 bvid；动态/专栏 @ 跳过；缺 `rpid` 的通知跳过，不退化顶层评论；`onlyOwnVideos` 依赖只读 `video info`，归属未知即 fail closed。陌生人私信仍不在自动回复范围（CLI 互关校验 + 主人白名单）。
+  - 回归：`test/bridge/e2e/11-console-logic.test.mjs` 新增用例覆盖入站成帧、aid→bvid、重启去重、时间窗/白名单/自有视频闸门、每轮截断、v1 迁移与 `root` 透传；`scripts/verify.mjs` 断言控制台默认配置含 `commentWatch`。
+  - **真实 E2E（2026-10-27，登录账号 UID 3747572327909430，目标视频 BV1qknH61EoH）**：
+    - 只读通过：`auth status`（logged_in）、`video info`（owner mid 39374538）、`comment list`、`inbox at`（4 条真实动态 @，归一化 0 条未识别，均为 dynamic 且被正确跳过）、`inbox reply`（空）。
+    - **真实缺陷已修**：`video info` 此前不返回作者 UID，导致 `onlyOwnVideos` 在真实数据上恒为 `owner_unknown`；现结果新增 `owner:{mid,name}`（附加字段，不改旧字段）。
+    - 分页语义修正：msgfeed 的 `cursor.id` 是游标 ID 而非条目 ID，被 `maxPerPoll` 截断时不再用条目 ID 顶替，改为保持原游标并靠 seen 去重续读整页。
+    - **真实桥接联调通过（只读）**：本地最小 WS + 真实 CLI 后端子进程 + `commentPolicy=draft`，bridge 轮询真实 `inbox at` 后把 4 条动态 @ 全部按 `unsupported_target:dynamic` 跳过，零帧、零写入，stdin stop 正常退出（exit 0）。
+    - **真实缺陷已修（接线层）**：`GatedBackend` 此前只转发 `readDm/sendDm`，main 装配后 `videoHot/videoSearch/comments/postComment/videoInfo/inboxAt/inboxReply` 全部丢失——即真实进程里滚动评论与通知通道都无法工作；现按内层是否真实提供逐一暴露，不再让能力探测误判。
+    - 真实写入：`comment create` 返回 `rpid=322098712400` 且 `audited:true`，但该评论在 `comment list` 与 `stat.reply` 中始终不可见（`visibilityVerified:false`），随后 `comment delete` 受理成功；未取得可见性证据，自我 @ 也未产生 msgfeed 通知。
+    - **真实闭环通过（双账号，2026-10-27）**：账号 B（UID 39374538，`%LOCALAPPDATA%\bilibili-cli-test-accounts\...\account-b`）在视频下发出「@娄宿三_alpha …」（`rpid=322101393024`，`at_name_to_mid` 已解析到机器人 UID）；账号 A 的 bridge 轮询真实 `inbox at`，跳过 4 条动态 @，把该条视频评论通知按 `bvid=BV1qknH61EoH, rpid=322101393024` 入队并成帧；通过本地 WS 注入 `type:reply` 后，bridge 以 A 身份真实调用 `comment create --rpid`，落成楼中楼 `rpid=322101403984`（`comment thread` 可见，账号 A 发布）。
+    - 真实 payload 形状（已据此固化回归）：视频评论 @ 的 `item.type="reply"`、`business="评论"`、`subject_id=aid`、`source_id=评论 rpid`、`root_id=0`、`source_content=正文`；`business_id` 在动态通知里是 0/11，不能当目标。
+    - 清理：桥接回复与 B 的评论均已 `comment delete` 删除，复查 `comment list` count=0；B 的 `writesEnabled` 已恢复为 false（A 原本为 true，未改动）。
+- Skill 文档升到 2.3.0（`requiresCli: 2.3`），Bridge 章节补充通知通道、四重回复量限制与去重/迁移语义。
+- **新增 Skill 编写规范与评测协议**（仅维护者文档，不进安装包与 npm tarball）：`docs/bilibili-cli/skill-authoring.md` 定义四层职责切分（schema=WHAT / 契约=命令级 WHEN+RETURNS / SKILL.md=意图路由与安全 / references=条件 HOW）、description 三段式、五要素结构、句式准则（禁孤立否定句）、RED→GREEN→REFACTOR 演进流程与提交前门禁；`docs/bilibili-cli/skill-eval.md` 增加盲测意图路由回归集（R1–R4）与 20 条 description 触发评测集（含近邻负例）。
+- **Skill 主文档按上述规范重构**（排版与语义变更，命令与参数契约不变）：
+  - 路由表首列改为**用户意图口吻**，并新增「看这条视频讲了什么」一行，写明 `info → subtitle → summary → snapshot 网格 → 弹幕/评论旁证` 的降级链；此前该意图在路由表中没有落点。
+  - 新增 **Gotchas 错题本**（裸传位置参数、19 位字符串 ID 精度、分P 与 6 分钟段编号、`video hot` 的 `videos` vs `items` 与 `pageItems` 截断、`empty:true` 非报错、`writesEnabled=true` 不等于本次授权）。
+  - 新增 **Reference 强触发索引**，明确禁止开局一次性全量读取 references，改为命中条件按节读取。
+  - 证据边界改为**禁令配正向配方**：保留「快照 URL 不等于看懂画面」，同时给出「裁切网格交视觉模型并注明秒数」的可执行动作。
+- **实测修正 `video snapshot` 形状描述**（此前文档只列字段名，形状靠猜）：`result` 含 `pvdata/img_x_len(10)/img_y_len(10)/img_x_size(480)/img_y_size(270)/image[]/index[]`；`index` 按行优先与格子顺次对应，但**长度常短于格子总数**（实测 200 格仅 112 个时间点，第二张图仅前 12 格有秒数），须按 `index.length` 截断、超出不得猜时间；单格 480×270 仅够读覆盖式大字，列表小字需放大或改用字幕旁证。
+- **Skill 改造效果验证**：`docs/bilibili-cli/skill-eval-results.md` 记录两轮 A/B 对照（含第一轮提示词泄漏的方法学审计与第二轮逐字同 prompt 的干净盲测）、静态契约对照、实测形状核对与验证结论。
+
+### 验证状态（2026-10-28）
+
+- `npm test`：**15 组端到端回归通过**，其中「文档一致性：单一安装入口、无 npx 运行 CLI、命令表与 schema 对齐」通过（`SKILL.md` 版本与 `package.json` 对齐、5 个 reference 全被链接）。
+- **未通过 1 组**：`bridge × 源码包 CLI：npm pack/install 后传输与写保护一致`，失败原因为 `spawnSync ETIMEDOUT`（该组在 `verify.mjs` 里给的预算是 240 s，而同等负载的 `build` 变体给的是 360 s）。
+  - 已单独复跑排因：在仓库外工作目录、复用同一安装前缀直接运行 `test/bridge/offline.mjs source`，报告为 `passedGroups: 8 / failedGroups: 0 / skippedGroups: 1`，耗时约 5 分钟——**即该组本身能通过，只是 240 s 预算在这台机器上偏紧**。
+  - 按仓库纪律，本版本**不擅自放宽该超时断言来换取绿灯**；这是测试编排的预算问题，留作独立修复。
+- **未运行**：真实 B 站只读 E2E（未设置 `BILIBILI_E2E`/`BILIBILI_E2E_READONLY`），真实双账号往返（需人工逐次确认）。
+
 ## 2.2.0 — 2026-10-27
 
 ### 新增与变更

@@ -17,6 +17,7 @@
 | 打包、发布、回滚与版本约定 | [docs/bilibili-cli/RELEASE.md](docs/bilibili-cli/RELEASE.md) |
 | 后续阶段与验收边界 | [docs/bilibili-cli/bridge实施路线图.md](docs/bilibili-cli/bridge实施路线图.md) |
 | 产品使用与开发入口 | [packages/bilibili-cli/README.md](packages/bilibili-cli/README.md) |
+| Agent Skill 编写规范与评测协议（Harness Engineering） | [docs/bilibili-cli/skill-authoring.md](docs/bilibili-cli/skill-authoring.md)、[docs/bilibili-cli/skill-eval.md](docs/bilibili-cli/skill-eval.md) |
 | Agent 使用指引（安装、启动、工作流、写授权） | [skills/bilibili-cli/SKILL.md](skills/bilibili-cli/SKILL.md) |
 | 命令、输出与退出码契约 | [skills/bilibili-cli/references/cli-contract.md](skills/bilibili-cli/references/cli-contract.md) |
 

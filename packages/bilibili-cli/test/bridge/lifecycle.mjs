@@ -1007,7 +1007,9 @@ export async function runLifecycleTests({ env: providedEnv, cwd, throwOnFailure 
 
       const saved = JSON.parse(await readFile(statePath, 'utf8'))
       assert.equal(saved.seen[0].id, 'id-19', '并发保存必须按调用顺序落盘')
-      assert.equal(saved.version, 1)
+      assert.equal(saved.version, 2, 'v1 状态保存后必须迁移为 v2（通知游标与 pending target 需要新结构）')
+      assert.equal(saved.pending[0].surface, 'dm', '迁移后的旧 pending 必须标记为私信通道')
+      assert.equal(saved.pending[0].target, null, '私信条目没有评论目标')
       assert.equal(saved.pending[0].id, 'dm:424242:mk:1', '完整 pending 字段必须通过严格校验')
       assert.equal(saved.pending[0].content, 'hello')
       await assertNoTempStateFiles(statePath)

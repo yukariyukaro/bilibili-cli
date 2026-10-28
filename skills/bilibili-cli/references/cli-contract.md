@@ -14,7 +14,7 @@ bilibili doctor --json
 
 仅在用户同意后执行全局安装；不得静默安装或升级。若用户不同意或环境无法安装，说明 CLI 依赖未满足并停止调用，不要自动切换到 npx，也不要使用源码脚本冒充已安装 CLI。只使用官方包名 `@yukariyukaro/bilibili-cli`。Skill 更新与 CLI 更新相互独立；更新 CLI 前先取得用户同意，更新后重新核验版本与依赖。`npx skills add/update/remove` 只管理 Skill 文件，不是 CLI 的运行方式。
 
-`doctor` 与 `skills list` 报告 CLI 及其随包文档的版本（`skill.docVersion`/`skill.docPath` 指向 npm 包内那份 SKILL.md）。本文件版本 2.2.0，要求 CLI 2.2.x；`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。
+`doctor` 与 `skills list` 报告 CLI 及其随包文档的版本（`skill.docVersion`/`skill.docPath` 指向 npm 包内那份 SKILL.md）。本文件版本 2.3.0，要求 CLI 2.3.x；`metadata.requiresCli` 声明兼容的 CLI 主次版本，patch 差异不算不一致。
 
 `doctor.skill.installed[]` 是 CLI 扫描到的本机 Skill 副本（`~/.agents/skills/bilibili-cli`、`~/.claude/skills/bilibili-cli`、当前目录同名路径，以及环境变量 `BILIBILI_SKILL_DIR` 指定的目录），每项为 `{path,docVersion,requiresCli,matchesCli,outdated}`；`skill.updateAvailable=true` 表示至少一份副本比随包文档旧，此时应提示用户升级 Skill 而不是升级 CLI。扫描不到副本时数组为空，需用本文件 frontmatter 手工比较。下文示例均使用 `bilibili <命令> [参数]`。
 
@@ -64,7 +64,7 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 | `bilibili video coin` | 写；投1–2枚真实硬币，不可退回；默认只投1枚；--bvid 必填；--num 1–2 默认1；--like 默认false |
 | `bilibili video favorite` | 写；将视频加入/移出明确的收藏夹；--bvid 必填；--media-ids 必填 长度≤400；--undo 默认false |
 | `bilibili video triple` | 写；一键三连，可能支出真实硬币且不可退回；--bvid 必填 |
-| `bilibili video snapshot` | 读；获取指定分 P 的快照/缩略图地址；不下载视频；--bvid 必填；--page 1–1000 默认1 |
+| `bilibili video snapshot` | 读；获取指定分 P 的快照雪碧图网格（`result` 含 10×10 缩略图与每格 `index` 秒数，可交视觉模型读画面）；不下载原视频；--bvid 必填；--page 1–1000 默认1 |
 | `bilibili video summary` | 读；查询B站已有AI总结，不可用时明确说明；--bvid 必填；--page 1–1000 默认1 |
 | `bilibili video toview` | 写；加入/移出稍后再看列表；--bvid 必填；--undo 默认false |
 | `bilibili danmaku list` | 读；读取指定分 P 的一段弹幕（每段6分钟，限制返回条数）；--bvid 必填；--page 1–1000 默认1；--segment 1–1000 默认1；--num 1–100 默认30 |
@@ -113,7 +113,7 @@ B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供（bilibili-api-
 - 公共读取：video snapshot/summary、danmaku list、user videos、emoji list/detail、指定 UID 的 dynamic list、dynamic info、指定 UID 的 favorite list、favorite content、season list/videos、upload missions。公共不保证接口可用、非空或绕过私密可见性。
 - 本人权限读取：video relation、stats overview/video/fans、upload topics，以及省略 UID 的 dynamic list / favorite list；先 auth status。旧命令的登录要求沿用上文。所有远端写均需登录，不尝试其他账号写权限。
 - video relation 返回顶层 liked、coins、favorited，另有嵌套 result{like, dislike, coin, favorite, season_fav, attention}；attention 是平台关注态，公开文档未定义其语义，不要据此断言已关注。不是相关推荐。video toview 只有添加/移除，属于远端写，没有稍后再看列表读取入口。
-- video snapshot 返回 bvid/page/cid/images/index/result；图片地址及时间索引不等于完整观看。video summary 返回 available；false 时有 reason，不是成功生成内容；true 时读取 summary/outline。无本地语音转写兜底。
+- video snapshot 返回 bvid/page/cid/images/index/result（其中 `result` 含 `pvdata/img_x_len/img_y_len/img_x_size/img_y_size/image[]/index[]`，即按行优先排列的缩略图网格及每格对应秒数；`index.length` 常短于 `img_x_len*img_y_len*图片数`，实测 200 格仅 112 个时间点，按覆盖范围截断）；仅拿到图片地址及时间索引不等于完整观看，需结合视觉模型读取网格画面才可引用画面信息，单格 480×270 只够读覆盖式大字。video summary 返回 available；false 时有 reason，不是成功生成内容；true 时读取 summary/outline。无本地语音转写兜底。
 - danmaku list 的 page 是分P，segment 是从1开始的6分钟段。items 的 timeMs 是片内播放毫秒（不是段内偏移），dmid 是精确字符串；items 不保证按 timeMs 排序，需要顺序时自行排序。count 只是本次返回条数（受 num 限制），segmentTotal 是该 6 分钟段内的弹幕总数，truncated 表示 segmentTotal>count；num 不表示全段全量。video info 的 stat.danmaku 是整条视频的历史计数，可能包含已删除或不可读的特殊弹幕，不能与 segmentTotal 直接比较；某段为空只说明该段无弹幕。
 - dynamic list 返回 items、pageItems、offset、hasMore、pageSize；offset 是字符串。集合字段名不统一：video hot 返回 videos，其余列表返回 items，取值前先看命令的返回结构。favorite content 的上游页大小固定20；num 只截取展示，返回 pageItems/hasMore。继续翻页前保留 pageItems，不能因 num 截断后直接跟游标而丢掉同页剩余项目。收藏夹为空时上游不返回 medias/has_more，CLI 返回 items:[]、pageItems:[]、hasMore:false、empty:true、reason:"NO_DATA"，这是空夹证据而不是后端故障；media_count=0 的夹可直接用 favorite list 的结果说明为空，不必再调用 favorite content。指定他人 uid 的 favorite list 可能恒为 count:0（对方未公开或接口不返回），不能据此断言该 UP 没有收藏。
 - 动态 id（包括返回 id_str）和 dmid 必须保持1–40位正十进制字符串，尤其19位ID不能转 number；JSONL也须加引号。uid/rpid/mediaId/seasonId/seriesId/aid/packageId 仍是正安全整数；CLI传十进制参数，JSONL传整数。mediaIds/ids/aids 是逗号分隔字符串，最多20个正安全整数，不是JSON数组。
@@ -182,6 +182,8 @@ JSONL 不放大写权限：每条写请求仍需针对本次目标与正文的�
 web 配置文件由严格版本 1 schema 校验，默认写入状态目录旁的 `console.json`（0600）；保存采用 revision 乐观并发检查，配置冲突返回 409。控制台保存后不会自动启停 bridge；连接、轮询、回复限制在下次 bridge 启动时生效。
 
 托管 bridge 子进程的运行时优先级为：显式 `bridge run` 参数 > 环境变量 > web 配置文件 > 内置默认值；但 `CC_CONNECT_BRIDGE_TOKEN` 始终只来自环境且无配置文件/CLI flag 兜底。具体为：owner UID 使用 `--owner-uids` > `BILIBILI_OWNER_UID` > `connection.ownerUids`；WebSocket URL 使用 `--url` > `CC_CONNECT_BRIDGE_URL` > `connection.url` > `ws://127.0.0.1:9810/bridge/ws`；轮询间隔使用 `--poll-ms` > `BILIBILI_POLL_MS` > `connection.pollMs` > 6000；maxPolls/maxReplies 使用对应 `BILIBILI_BRIDGE_MAX_POLLS`/`BILIBILI_BRIDGE_MAX_REPLIES` > 配置文件；回复策略和上限使用 `BILIBILI_BRIDGE_REPLY_POLICY`/`BILIBILI_BRIDGE_REPLY_MAX` > 配置文件 > 默认（策略为 owner，上限为 300）。
+
+评论通知配置（`reply.commentWatch`）在 `reply.commentPolicy !== 'off'` 时按独立间隔轮询 `inbox at|reply`，把通知连同准确的 `bvid/rpid/root` 交给 agent；`maxPerPoll` / `reply.commentMaxReplies` / `minGapMs` / `maxAgeMinutes` 限制回复量，`allowUids` / `onlyOwnVideos` 限定来源；`BILIBILI_BRIDGE_COMMENT_WATCH=off` 是停止轮询的应急总闸。通知轮询与写入都不自动重试。
 
 刷视频配置会驱动 bridge 本地读取视频列表与评论；当前本地循环不保证读取字幕、应用自定义 Agent 提示或生成报告。回复与评论策略可能触发自动放行，不只是文本偏好。通知配置不会由控制台直接发送。配置本身不代表用户对准确目标与最终正文的本次确认；需要真实写入时走主文档的单次确认流程，不以自动策略替代授权。
 

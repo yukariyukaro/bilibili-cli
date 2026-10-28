@@ -9,7 +9,7 @@ import { checkStopRequest, clearOwnStopRequest } from './control-plane.mjs'
 import { errorCode, errorMessage, isPlainObject, isPositiveIntegerString } from './guards.mjs'
 import { acquireInstanceLock, createStateStore, type InstanceLock, type StateStore } from './state.mjs'
 import { resolveBridgeStatePath } from './state-path.mjs'
-import { ConsoleError, buildScrollTask, readConsoleConfig, type ConsoleConfig } from './web-config.mjs'
+import { ConsoleError, buildScrollTask, defaultConsoleConfig, readConsoleConfig, type CommentWatchConfig, type ConsoleConfig } from './web-config.mjs'
 import { createConsoleServer } from './web-server.mjs'
 import { ConsoleSupervisor, type ConsoleStatus } from './web-supervisor.mjs'
 import type { BilibiliDmBackend, BridgeLogger, BridgeState } from './types.mjs'
@@ -107,6 +107,8 @@ interface BridgeConfig {
   statePath: string
   commentPolicy: 'off' | 'owner' | 'draft'
   commentMaxReplies: number
+  commentWatchEnabled: boolean
+  commentWatch: CommentWatchConfig
   scroll: { source: 'hot' | 'search'; keywords: string; numVideos: number; commentsPerVideo: number; preferTags: string; avoidTags: string; style: string }
 }
 
@@ -212,14 +214,21 @@ async function readConfig(args: BridgeRunArgs): Promise<BridgeConfig> {
     throw configError('BILIBILI_BRIDGE_REPLY_MAX 必须是 1–' + String(MAX_TEXT) + ' 的整数')
   }
 
+  const commentPolicy = (consoleConfig?.reply?.commentPolicy ?? 'off') as BridgeConfig['commentPolicy']
+  const commentWatch = consoleConfig?.reply?.commentWatch ?? defaultConsoleConfig().reply.commentWatch
+  // off 时完全不轮询通知（省请求，也不会把通知交给 agent）；环境变量是应急总闸。
+  const commentWatchDisabled = process.env.BILIBILI_BRIDGE_COMMENT_WATCH === 'off'
+  const commentWatchEnabled = !commentWatchDisabled && commentPolicy !== 'off' && commentWatch.kinds.length > 0
   return {
     token,
     ownerUids,
     pollMs,
     maxPolls,
     maxReplies,
-    commentPolicy: (consoleConfig?.reply?.commentPolicy ?? 'off') as BridgeConfig['commentPolicy'],
+    commentPolicy,
     commentMaxReplies: Number.isSafeInteger(consoleConfig?.reply?.commentMaxReplies) ? Number(consoleConfig?.reply?.commentMaxReplies) : 0,
+    commentWatchEnabled,
+    commentWatch,
     scroll: {
       source: consoleConfig?.scroll?.source === 'search' ? 'search' : 'hot',
       keywords: String(consoleConfig?.scroll?.keywords ?? ''),
@@ -279,11 +288,29 @@ function abortError(): Error & { code: string } {
   return Object.assign(new Error('bridge 已停止，等待中的轮询不再执行'), { code: 'POLL_ABORTED' })
 }
 
-class GatedBackend implements BilibiliDmBackend {
+export class GatedBackend implements BilibiliDmBackend {
+  // 可选能力必须“内层真有才暴露”：adapter 用 typeof 探测能力，
+  // 在这里无条件实现会让缺能力的场景变成运行期报错，而不是清晰的能力缺失。
+  readonly videoHot?: BilibiliDmBackend['videoHot']
+  readonly videoSearch?: BilibiliDmBackend['videoSearch']
+  readonly videoInfo?: BilibiliDmBackend['videoInfo']
+  readonly comments?: BilibiliDmBackend['comments']
+  readonly postComment?: BilibiliDmBackend['postComment']
+  readonly inboxAt?: BilibiliDmBackend['inboxAt']
+  readonly inboxReply?: BilibiliDmBackend['inboxReply']
+
   constructor(
     private readonly backend: BilibiliDmBackend,
     private readonly gate: PollGate,
-  ) {}
+  ) {
+    if (typeof backend.videoHot === 'function') this.videoHot = (num) => backend.videoHot!(num)
+    if (typeof backend.videoSearch === 'function') this.videoSearch = (keyword, num) => backend.videoSearch!(keyword, num)
+    if (typeof backend.videoInfo === 'function') this.videoInfo = (bvid) => backend.videoInfo!(bvid)
+    if (typeof backend.comments === 'function') this.comments = (bvid, num) => backend.comments!(bvid, num)
+    if (typeof backend.postComment === 'function') this.postComment = (target, text, options) => backend.postComment!(target, text, options)
+    if (typeof backend.inboxAt === 'function') this.inboxAt = (cursor) => backend.inboxAt!(cursor)
+    if (typeof backend.inboxReply === 'function') this.inboxReply = (cursor) => backend.inboxReply!(cursor)
+  }
 
   readDm(uid: string): Promise<unknown> {
     return this.gate.read(() => this.backend.readDm(uid))
@@ -474,15 +501,25 @@ export class BridgeRuntime {
       maxPolls: config.maxPolls,
       maxReplies: config.maxReplies,
       commentMaxReplies: config.commentMaxReplies,
+      commentWatchEnabled: config.commentWatchEnabled,
+      commentWatch: config.commentWatch,
       scroll: config.scroll,
       // 评论写入与私信同权：off 一律拒绝，draft 只出草稿不投递，owner 需逐次确认回调放行。
-      confirmComment: async ({ bvid, text }) => {
+      confirmComment: async ({ bvid, rpid, root, text }) => {
         if (config.commentPolicy === 'off') return false
         if (config.commentPolicy === 'draft') {
           const draftPath = join(dirname(config.statePath), basename(config.statePath) + '.comment-drafts.jsonl')
           try {
             mkdirSync(dirname(draftPath), { recursive: true })
-            appendFileSync(draftPath, JSON.stringify({ at: new Date().toISOString(), bvid, text: String(text ?? '') }) + '\n', { encoding: 'utf8', mode: 0o600 })
+            // 草稿必须带准确目标，否则主人无法判断它会落到哪条评论。
+            const record = {
+              at: new Date().toISOString(),
+              bvid,
+              rpid: rpid ?? null,
+              root: root ?? null,
+              text: String(text ?? ''),
+            }
+            appendFileSync(draftPath, JSON.stringify(record) + '\n', { encoding: 'utf8', mode: 0o600 })
           } catch { /* 草稿失败不改变策略 */ }
           return false
         }

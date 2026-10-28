@@ -300,6 +300,9 @@ await check('bridge console get/set 可无浏览器读写定时任务，并拒�
   const configPath = join(temp, 'console-cli', 'console.json')
   const before = json(['bridge', 'console', 'get', '--config-path', configPath]).result
   assert.equal(before.config.schedule.enabled, false, '默认不启用定时任务')
+  assert.deepEqual(before.config.reply.commentWatch.kinds, ['at', 'reply'], '默认订阅 @ 与回复通知')
+  assert.equal(before.config.reply.commentWatch.maxPerPoll, 5, '默认每轮最多 5 条通知')
+  assert.equal(before.config.reply.commentWatch.onlyOwnVideos, true, '默认只回复自有视频')
   assert.equal(before.active, false)
   assert.equal(before.nextRun, null)
   assert.match(String(before.revision), /^[0-9a-f]{64}$/)

@@ -8,13 +8,18 @@ import {
   primaryIdString,
 } from './ids.mjs'
 import { parseJsonLossless } from './json.mjs'
+import { parseInbox } from './notifications.mjs'
 import { compareOrders, comparePendingEntries, isAfterOrder, orderFromPending } from './orders.mjs'
 import { normalizeState } from './state.mjs'
 import type {
   BilibiliDmBackend,
   BridgeLogger,
+  BridgeMessageInput,
   BridgeSender,
   BridgeState,
+  NotifyCursor,
+  NotifyItem,
+  NotifyKind,
   Order,
   PendingEntry,
 } from './types.mjs'
@@ -41,8 +46,9 @@ function contractTextMax(commandName: string, fallback: number): number {
 export const COMMENT_TEXT_MAX = contractTextMax('comment create', MAX_TEXT)
 /** 私信正文上限（取自 dm send 契约）。 */
 export const DM_TEXT_MAX = contractTextMax('dm send', MAX_TEXT)
-export const STATE_VERSION = 1
+export const STATE_VERSION = 2
 export const MAX_PENDING = 1000
+const MAX_VIDEO_CACHE = 200
 
 /**
  * 转发给 agent 的来源头，对齐 cc-connect 的 injectSender 做法（"[…]\n正文"）：
@@ -258,6 +264,20 @@ function numericType(value: unknown): number | null {
   return Number.isSafeInteger(number) ? number : null
 }
 
+/** 从 video info 响应里取 UP 主 UID；兼容 {result}/{data} 包装与顶层 mid。 */
+function ownerUidOf(payload: unknown): string | null {
+  let value: unknown = payload
+  if (isPlainObject(value) && value.result !== undefined && value.result !== null) value = value.result
+  const root = asRecord(value)
+  const data = asRecord(root.data)
+  const candidates = [asRecord(root.owner).mid, asRecord(data.owner).mid, root.mid, data.mid]
+  for (const candidate of candidates) {
+    const uid = toIdString(candidate)
+    if (/^[1-9]\d*$/.test(uid)) return uid
+  }
+  return null
+}
+
 function messageName(message: unknown, sender: string): string {
   const record = asRecord(message)
   const name = record.user_name ?? record.uname ?? record.sender_name ?? record.name
@@ -344,11 +364,14 @@ export interface AdapterStats {
   polls: number
   replies: number
   comments: number
+  notifications: number
+  notificationSkipped: number
 }
 
 export type ConfirmComment = (input: {
   bvid: string
   rpid?: number
+  root?: number
   text: string
   reply: unknown
 }) => boolean | Promise<boolean>
@@ -361,6 +384,24 @@ export interface ScrollPrefs {
   preferTags: string
   avoidTags: string
   style: string
+}
+
+/** 评论区通知通道的偏好；默认值在 adapter 构造时补齐并校验范围。 */
+export interface CommentWatchPrefs {
+  /** 订阅哪类通知；空数组视为关闭。 */
+  kinds: NotifyKind[]
+  /** 通知轮询间隔（毫秒），独立于私信轮询，避免打爆接口。 */
+  pollMs: number
+  /** 每轮最多处理多少条通知；剩下的留到下一轮，游标不越过未处理项。 */
+  maxPerPoll: number
+  /** 两次通知转发之间的最小间隔，0 表示不限。 */
+  minGapMs: number
+  /** 只处理最近 N 分钟的通知，0 表示不限；用于避免重启后补发历史。 */
+  maxAgeMinutes: number
+  /** 评论者白名单；空数组表示不限。 */
+  allowUids: string[]
+  /** 只回复自己视频下的评论（需要 video info 归属校验）。 */
+  onlyOwnVideos: boolean
 }
 
 export interface ScrollSummary {
@@ -393,6 +434,9 @@ export interface BilibiliBridgeAdapterOptions {
   replyMax?: number
   maxPolls?: number
   maxReplies?: number
+  /** 评论通知通道是否轮询；由 commentPolicy 是否为 off 决定。 */
+  commentWatchEnabled?: boolean
+  commentWatch?: Partial<CommentWatchPrefs>
   logger?: BridgeLogger
 }
 
@@ -458,9 +502,15 @@ export class BilibiliBridgeAdapter {
   readonly commentMaxReplies: number
   readonly confirmComment: ConfirmComment
   readonly scroll: ScrollPrefs
+  readonly commentWatch: CommentWatchPrefs
+  readonly commentWatchEnabled: boolean
   polls = 0
   replies = 0
   comments = 0
+  private lastNotifyPollAt = 0
+  private lastCommentForwardAt = 0
+  private readonly videoOwnerCache = new Map<string, string | null>()
+  private readonly warnedMissingInbox = new Set<string>()
   saveState: SaveState
   state: BridgeState
   onBaselineReady: (() => void) | null = null
@@ -497,6 +547,8 @@ export class BilibiliBridgeAdapter {
     replyMax = DEFAULT_REPLY_MAX,
     maxPolls = 0,
     maxReplies = 0,
+    commentWatchEnabled = false,
+    commentWatch = {},
     logger = console,
   }: BilibiliBridgeAdapterOptions) {
     const owners = (Array.isArray(ownerUids) ? ownerUids : String(ownerUids ?? '').split(','))
@@ -540,6 +592,29 @@ export class BilibiliBridgeAdapter {
       avoidTags: typeof scroll.avoidTags === 'string' ? scroll.avoidTags : '',
       style: typeof scroll.style === 'string' ? scroll.style : '',
     }
+    this.commentWatchEnabled = commentWatchEnabled === true
+    const kindsRaw = Array.isArray(commentWatch.kinds) ? commentWatch.kinds : ['at', 'reply']
+    const kinds = [...new Set(kindsRaw.filter((kind): kind is NotifyKind => kind === 'at' || kind === 'reply'))]
+    this.commentWatch = {
+      kinds,
+      pollMs: Number.isSafeInteger(commentWatch.pollMs) && (commentWatch.pollMs ?? 0) >= MIN_POLL_MS
+        ? Math.min(Number(commentWatch.pollMs), 2147483647)
+        : 60000,
+      maxPerPoll: Number.isSafeInteger(commentWatch.maxPerPoll) && (commentWatch.maxPerPoll ?? 0) >= 1
+        ? Math.min(Number(commentWatch.maxPerPoll), 50)
+        : 5,
+      minGapMs: Number.isSafeInteger(commentWatch.minGapMs) && (commentWatch.minGapMs ?? -1) >= 0
+        ? Math.min(Number(commentWatch.minGapMs), 3600000)
+        : 30000,
+      maxAgeMinutes: Number.isSafeInteger(commentWatch.maxAgeMinutes) && (commentWatch.maxAgeMinutes ?? -1) >= 0
+        ? Math.min(Number(commentWatch.maxAgeMinutes), 10080)
+        : 1440,
+      allowUids: (Array.isArray(commentWatch.allowUids) ? commentWatch.allowUids : [])
+        .map((uid) => String(uid).trim())
+        .filter((uid) => /^[1-9]\d*$/.test(uid))
+        .slice(0, 20),
+      onlyOwnVideos: typeof commentWatch.onlyOwnVideos === 'boolean' ? commentWatch.onlyOwnVideos : true,
+    }
     // CLI 契约里 dm send 正文上限就是 MAX_TEXT（300）；超过它会在 CLI 校验层被拒。
     this.replyMax = Number.isSafeInteger(replyMax) && replyMax >= 1
       ? Math.min(replyMax, MAX_TEXT)
@@ -558,6 +633,8 @@ export class BilibiliBridgeAdapter {
       polls: 0,
       replies: 0,
       comments: 0,
+      notifications: 0,
+      notificationSkipped: 0,
     }
     this.bridge.onReply = (reply: unknown) => this.handleReply(reply)
   }
@@ -705,6 +782,7 @@ export class BilibiliBridgeAdapter {
       summary.pendingFull = true
     } else {
       for (const uid of this.ownerUidList) await this.pollConversation(uid, summary)
+      await this.pollNotifications()
     }
     await this.drainPending(summary)
     return summary
@@ -772,6 +850,218 @@ export class BilibiliBridgeAdapter {
     await this.stageMessages(uid, messages, summary)
   }
 
+  /**
+   * 评论区通知轮询：独立节奏、只读、失败不重试。
+   * backend 未提供能力时显式告警并跳过，不静默降级成“没有通知”。
+   */
+  private async pollNotifications(): Promise<void> {
+    if (!this.commentWatchEnabled) return
+    const kinds = this.commentWatch.kinds
+    if (!kinds.length) return
+    const now = Date.now()
+    if (now - this.lastNotifyPollAt < this.commentWatch.pollMs) return
+    this.lastNotifyPollAt = now
+    for (const kind of kinds) {
+      const reader = kind === 'at' ? this.backend.inboxAt : this.backend.inboxReply
+      if (typeof reader !== 'function') {
+        if (!this.warnedMissingInbox.has(kind)) {
+          this.warnedMissingInbox.add(kind)
+          this.logger.warn?.('[bilibili-bridge] backend 未提供 inbox ' + kind + ' 能力；该通知通道不轮询')
+        }
+        continue
+      }
+      const cursor = this.state.notifications[kind]
+      let payload: unknown
+      try {
+        payload = await reader.call(this.backend, {
+          id: cursor === null ? null : cursor.id,
+          time: cursor === null ? null : cursor.time,
+        })
+      } catch (error) {
+        this.stats.readFailures += 1
+        this.logger.error?.('[bilibili-bridge] inbox ' + kind + ' failed: ' + errorText(error, 'unknown error'))
+        continue
+      }
+      const parsed = parseInbox(kind, payload)
+      if (parsed.unparsed > 0) {
+        this.logger.warn?.(
+          '[bilibili-bridge] inbox ' + kind + ' 有 ' + String(parsed.unparsed) + ' 条通知无法识别字段，已跳过',
+        )
+      }
+      await this.stageNotifications(kind, parsed.items, parsed.cursor)
+    }
+  }
+
+  /**
+   * 排序 → 去重 → 过闸 → 入队。游标只推进到“确实处理过”的条目，
+   * 因此 maxPerPoll 截断后剩下的通知下一轮还会出现。
+   */
+  private async stageNotifications(kind: NotifyKind, items: NotifyItem[], remote: NotifyCursor | null): Promise<void> {
+    if (!items.length) {
+      if (remote !== null) await this.commitNotifyCursor(kind, remote)
+      return
+    }
+    const sorted = [...items].sort((left, right) => {
+      const leftTime = left.time ?? 0
+      const rightTime = right.time ?? 0
+      if (leftTime !== rightTime) return leftTime - rightTime
+      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0
+    })
+    const candidate = structuredClone(this.state)
+    const seenIds = new Set(candidate.seen.map((entry) => entry.id))
+    const pendingIds = new Set(candidate.pending.map((entry) => entry.id))
+    const at = new Date().toISOString()
+    const markSeen = (id: string): void => {
+      if (seenIds.has(id)) return
+      seenIds.add(id)
+      candidate.seen.push({ id, at })
+    }
+    // processed 用于推进游标；budget 只计“需要真正处理”的条目。
+    // 已见过的通知不消耗每轮额度，否则重启后的第一轮会被历史条目挤满。
+    let processed = 0
+    let budget = 0
+    let staged = 0
+    for (const item of sorted) {
+      if (budget >= this.commentWatch.maxPerPoll) break
+      const notifyId = kind + ':' + item.id
+      if (seenIds.has(notifyId)) {
+        processed += 1
+        continue
+      }
+      budget += 1
+      processed += 1
+      const reason = await this.notificationSkipReason(item)
+      if (reason !== null) {
+        this.stats.notificationSkipped += 1
+        markSeen(notifyId)
+        this.logger.log?.(
+          '[bilibili-bridge] notification skipped id=' + item.id + ' kind=' + kind + ' reason=' + reason,
+        )
+        continue
+      }
+      const entry = this.pendingFromNotification(item)
+      if (pendingIds.has(entry.id)) {
+        markSeen(notifyId)
+        continue
+      }
+      if (candidate.pending.length >= MAX_PENDING) {
+        // 队列饱和：本条没有真正处理，游标不能越过它。
+        processed -= 1
+        break
+      }
+      candidate.pending.push(entry)
+      pendingIds.add(entry.id)
+      markSeen(notifyId)
+      markSeen(entry.id)
+      staged += 1
+    }
+    const nextCursor = this.nextNotifyCursor(this.state.notifications[kind], remote, processed, sorted.length)
+    if (nextCursor !== null) candidate.notifications[kind] = nextCursor
+    candidate.seen = candidate.seen.slice(-MAX_SEEN)
+    if (!processed && nextCursor === null) return
+    const saved = await this.commit(candidate)
+    if (!saved) return
+    if (staged > 0) {
+      this.stats.notifications += staged
+      this.logger.log?.(
+        '[bilibili-bridge] notifications staged kind=' + kind + ' count=' + String(staged) +
+        ' processed=' + String(processed),
+      )
+    }
+  }
+
+  /**
+   * 整页处理完才采用上游 cursor（msgfeed 的 id 是游标 ID，不是条目 ID，不能拿条目 ID 顶替）；
+   * 被 maxPerPoll 截断时保持原游标，下一轮靠 seen 去重继续处理同一页。
+   */
+  private nextNotifyCursor(
+    current: NotifyCursor | null,
+    remote: NotifyCursor | null,
+    processed: number,
+    total: number,
+  ): NotifyCursor | null {
+    if (processed >= total) return remote ?? current
+    return current
+  }
+
+  private async commitNotifyCursor(kind: NotifyKind, cursor: NotifyCursor): Promise<void> {
+    const candidate = structuredClone(this.state)
+    candidate.notifications[kind] = cursor
+    await this.commit(candidate)
+  }
+
+  /** 逐条判定是否值得占用一次回复机会；返回 null 表示可以入队。 */
+  private async notificationSkipReason(item: NotifyItem): Promise<string | null> {
+    if (!item.uid) return 'missing_uid'
+    if (this.selfUid !== null && item.uid === this.selfUid) return 'self'
+    if (item.target.type !== 'video') return 'unsupported_target:' + item.target.type
+    if (item.target.bvid === null) return 'unresolved_bvid'
+    if (item.target.rpid === null) return 'missing_rpid'
+    if (!item.text) return 'empty_text'
+    const { maxAgeMinutes, allowUids, onlyOwnVideos } = this.commentWatch
+    if (maxAgeMinutes > 0 && item.time !== null) {
+      const sentAt = item.time > 1e11 ? item.time : item.time * 1000
+      if (Date.now() - sentAt > maxAgeMinutes * 60000) return 'stale'
+    }
+    if (allowUids.length && !allowUids.includes(item.uid)) return 'sender_not_allowed'
+    if (this.commentMaxReplies > 0 && this.comments >= this.commentMaxReplies) return 'comment_limit'
+    if (onlyOwnVideos) {
+      const owner = await this.videoOwner(item.target.bvid)
+      if (owner === null) return 'owner_unknown'
+      if (!this.ownerUids.has(owner)) return 'foreign_video'
+    }
+    return null
+  }
+
+  /** 归属校验用的 video info；失败不缓存，下一轮重试。 */
+  private async videoOwner(bvid: string): Promise<string | null> {
+    if (this.videoOwnerCache.has(bvid)) return this.videoOwnerCache.get(bvid) ?? null
+    const info = this.backend.videoInfo
+    if (typeof info !== 'function') return null
+    let owner: string | null
+    try {
+      owner = ownerUidOf(await info.call(this.backend, bvid))
+    } catch (error) {
+      this.logger.warn?.(
+        '[bilibili-bridge] video info failed bvid=' + bvid + ' (' + errorText(error, 'unknown error') + ')',
+      )
+      return null
+    }
+    if (this.videoOwnerCache.size >= MAX_VIDEO_CACHE) {
+      const oldest = this.videoOwnerCache.keys().next()
+      if (!oldest.done) this.videoOwnerCache.delete(oldest.value)
+    }
+    this.videoOwnerCache.set(bvid, owner)
+    return owner
+  }
+
+  private pendingFromNotification(item: NotifyItem): PendingEntry {
+    const bvid = item.target.bvid as string
+    const rpid = item.target.rpid as number
+    const root = item.target.root ?? undefined
+    const lines = [
+      '视频：' + bvid + '（https://www.bilibili.com/video/' + bvid + '）',
+      '通知：' + (item.kind === 'at' ? '@提及' : '评论回复'),
+      '评论者：' + (item.name || item.uid) + '（uid ' + item.uid + '）',
+    ]
+    if (item.uri) lines.push('通知链接：' + item.uri)
+    lines.push('', item.text, '', '回复正文即最终评论，会作为 rpid=' + String(rpid) + ' 的楼中楼发出' +
+      (root === undefined ? '' : '（root=' + String(root) + '）') + '；不要附带解释。')
+    return {
+      id: 'cmt:' + bvid + ':' + String(rpid),
+      uid: this.ownerUidList[0] ?? '',
+      name: item.name || item.uid,
+      content: lines.join('\n'),
+      seqno: null,
+      timestamp: item.time,
+      key: item.id,
+      skipReason: null,
+      created_at: new Date().toISOString(),
+      surface: 'comment',
+      target: root === undefined ? { bvid, rpid } : { bvid, rpid, root },
+    }
+  }
+
   private async stageMessages(uid: string, messages: unknown[], summary: PollSummary): Promise<boolean> {
     const candidate = structuredClone(this.state)
     const pendingIds = new Set(candidate.pending.map((entry) => entry.id))
@@ -815,6 +1105,8 @@ export class BilibiliBridgeAdapter {
         key: order.key,
         skipReason: skipped ? classification.skip : null,
         created_at: new Date().toISOString(),
+        surface: 'dm',
+        target: null,
       }
       candidate.pending.push(entry)
       pendingIds.add(id)
@@ -831,6 +1123,45 @@ export class BilibiliBridgeAdapter {
     }
     summary.staged += staged
     return true
+  }
+
+  /** 私信帧：来源头 + reply_ctx 指向对端 uid。 */
+  private dmFrame(entry: PendingEntry, senderName: string): BridgeMessageInput {
+    return {
+      type: 'message',
+      id: entry.id,
+      msg_id: entry.id,
+      uid: entry.uid,
+      user_id: entry.uid,
+      name: senderName,
+      user_name: senderName,
+      session_key: this.platform + ':dm:' + entry.uid,
+      content: sourceHeader('dm', senderName) + entry.content,
+      reply_ctx: JSON.stringify({ kind: 'dm', uid: entry.uid }),
+      source: { platform: this.platform, surface: 'dm', untrusted: true },
+    }
+  }
+
+  /** 评论通知帧：reply_ctx 必须带准确的 bvid/rpid（可选 root），否则 agent 会回到错误的评论。 */
+  private commentFrame(entry: PendingEntry, senderName: string): BridgeMessageInput | null {
+    const target = entry.target
+    if (target === null) return null
+    const replyContext: Record<string, unknown> = { kind: 'comment', bvid: target.bvid }
+    if (target.rpid !== undefined) replyContext.rpid = target.rpid
+    if (target.root !== undefined) replyContext.root = target.root
+    return {
+      type: 'message',
+      id: entry.id,
+      msg_id: entry.id,
+      uid: entry.uid,
+      user_id: entry.uid,
+      name: senderName,
+      user_name: senderName,
+      session_key: this.platform + ':comment:' + target.bvid,
+      content: sourceHeader('comment', senderName) + entry.content,
+      reply_ctx: JSON.stringify(replyContext),
+      source: { platform: this.platform, surface: 'comment', untrusted: true },
+    }
   }
 
   private async drainPending(summary: PollSummary): Promise<void> {
@@ -863,25 +1194,27 @@ export class BilibiliBridgeAdapter {
         continue
       }
       if (!this.bridgeReady()) break
-      const surface = 'dm' as const
+      // 通知转发也要限速：未到最小间隔就停下，条目留在 pending 等下一轮。
+      if (
+        entry.surface === 'comment' &&
+        this.commentWatch.minGapMs > 0 &&
+        Date.now() - this.lastCommentForwardAt < this.commentWatch.minGapMs
+      ) break
+      // 同时提供归一化字段和 bridge 帧字段：BridgeClient 会补齐/校验。
+      // content 前置来源头，source 供支持结构化元数据的 adapter 使用。
+      // 昵称同时用于来源头和帧字段，必须用同一套清洗结果，避免下游从 name 绕过。
+      const senderName = sanitizeSender(entry.name || entry.uid)
+      const frame = entry.surface === 'comment'
+        ? this.commentFrame(entry, senderName)
+        : this.dmFrame(entry, senderName)
+      if (frame === null) {
+        // 目标缺失的评论条目直接剔除，避免永久堵塞队列；不产生帧。
+        this.logger.warn?.('[bilibili-bridge] pending comment without target dropped id=' + entry.id)
+        resolutions.push(resolutionOf(entry))
+        continue
+      }
       try {
-        // 同时提供归一化字段和 bridge 帧字段：BridgeClient 会补齐/校验。
-        // content 前置来源头，source 供支持结构化元数据的 adapter 使用。
-        // 昵称同时用于来源头和帧字段，必须用同一套清洗结果，避免下游从 name 绕过。
-        const senderName = sanitizeSender(entry.name || entry.uid)
-        const result = await this.bridge.sendMessage({
-          type: 'message',
-          id: entry.id,
-          msg_id: entry.id,
-          uid: entry.uid,
-          user_id: entry.uid,
-          name: senderName,
-          user_name: senderName,
-          session_key: this.platform + ':dm:' + entry.uid,
-          content: sourceHeader(surface, senderName) + entry.content,
-          reply_ctx: JSON.stringify({ kind: 'dm', uid: entry.uid }),
-          source: { platform: this.platform, surface, untrusted: true },
-        })
+        const result = await this.bridge.sendMessage(frame)
         if (result === false || (isPlainObject(result) && (result.ok === false || result.success === false))) {
           throw new Error(errorText(isPlainObject(result) ? result.error : undefined, 'bridge send rejected'))
         }
@@ -892,7 +1225,8 @@ export class BilibiliBridgeAdapter {
         break
       }
       summary.forwarded += 1
-      this.logger.log?.('[bilibili-bridge] forwarded msg_id=' + entry.id + ' uid=' + entry.uid)
+      if (entry.surface === 'comment') this.lastCommentForwardAt = Date.now()
+      this.logger.log?.('[bilibili-bridge] forwarded msg_id=' + entry.id + ' uid=' + entry.uid + ' surface=' + entry.surface)
       resolutions.push(resolutionOf(entry))
     }
 
@@ -1097,6 +1431,16 @@ export class BilibiliBridgeAdapter {
       }
       rpid = numeric
     }
+    let root: number | undefined
+    if (context.root !== undefined && context.root !== null) {
+      const numeric = typeof context.root === 'number' ? context.root : Number(String(context.root))
+      if (!Number.isSafeInteger(numeric) || numeric < 1 || rpid === undefined) {
+        // root 只对楼中楼有意义；没有 rpid 就等于回错位置，直接拒绝而不是退化成顶层评论。
+        this.logger.error?.('[bilibili-bridge] comment reply rejected: invalid root')
+        return { ok: false, reason: 'invalid_target' }
+      }
+      root = numeric
+    }
     if (!this.backend.postComment) {
       this.logger.error?.('[bilibili-bridge] comment reply rejected: backend 未提供 postComment 能力')
       return { ok: false, reason: 'comment_unsupported' }
@@ -1106,14 +1450,19 @@ export class BilibiliBridgeAdapter {
       return { ok: false, reason: 'comment_limit' }
     }
     try {
-      const approved = await this.confirmComment({ bvid, rpid, text: content, reply: {} })
+      const approved = await this.confirmComment({ bvid, rpid, root, text: content, reply: {} })
       if (!approved) {
         this.logger.log?.('[bilibili-bridge] comment reply skipped: not confirmed bvid=' + bvid)
         return { ok: false, reason: 'not_confirmed' }
       }
       this.comments += 1
       this.stats.comments = this.comments
-      const result = await this.backend.postComment(rpid === undefined ? { bvid } : { bvid, rpid }, content, { confirm: true })
+      const target = rpid === undefined
+        ? { bvid }
+        : root === undefined
+          ? { bvid, rpid }
+          : { bvid, rpid, root }
+      const result = await this.backend.postComment(target, content, { confirm: true })
       if (isPlainObject(result) && (result.dryRun === true || result.dry_run === true || result.preview === true)) {
         this.logger.log?.('[bilibili-bridge] comment previewed (dry-run) bvid=' + bvid)
         return { ok: true, bvid, dryRun: true }

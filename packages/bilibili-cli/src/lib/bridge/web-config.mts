@@ -3,10 +3,21 @@ import { chmod, lstat, mkdir, readFile, rename, unlink, writeFile } from 'node:f
 import { dirname } from 'node:path'
 import { errorCode, isPlainObject } from './guards.mjs'
 
+/** 评论区 @ / 回复通知的监听设置；缺省字段回填默认值，保持 v1 配置可读。 */
+export interface CommentWatchConfig {
+  kinds: ('at' | 'reply')[]
+  pollMs: number
+  maxPerPoll: number
+  minGapMs: number
+  maxAgeMinutes: number
+  allowUids: string[]
+  onlyOwnVideos: boolean
+}
+
 export interface ConsoleConfig {
   version: 1
   connection: { url: string; ownerUids: string[]; pollMs: number; maxPolls: number }
-  reply: { policy: 'off' | 'owner' | 'draft'; maxLength: number; maxReplies: number; commentPolicy: 'off' | 'owner' | 'draft'; commentMaxReplies: number; style: string }
+  reply: { policy: 'off' | 'owner' | 'draft'; maxLength: number; maxReplies: number; commentPolicy: 'off' | 'owner' | 'draft'; commentMaxReplies: number; style: string; commentWatch: CommentWatchConfig }
   scroll: { enabled: boolean; source: 'hot' | 'search'; keywords: string; numVideos: number; readComments: boolean; commentsPerVideo: number; readSubtitles: boolean; preferTags: string; avoidTags: string; reportDirectory: string }
   schedule: { enabled: boolean; time: string; timeZone: string; weekdays: number[] }
   notification: { channel: 'none' | 'dm' | 'comment'; ownerUid: string; mentionName: string; bvid: string }
@@ -21,7 +32,23 @@ export function defaultConsoleConfig(): ConsoleConfig {
   return {
     version: 1,
     connection: { url: 'ws://127.0.0.1:9810/bridge/ws', ownerUids: [], pollMs: 6000, maxPolls: 0 },
-    reply: { policy: 'off', maxLength: 300, maxReplies: 10, commentPolicy: 'off', commentMaxReplies: 3, style: '自然、简短，先理解内容再回复；不冒充主人。' },
+    reply: {
+      policy: 'off',
+      maxLength: 300,
+      maxReplies: 10,
+      commentPolicy: 'off',
+      commentMaxReplies: 3,
+      style: '自然、简短，先理解内容再回复；不冒充主人。',
+      commentWatch: {
+        kinds: ['at', 'reply'],
+        pollMs: 60000,
+        maxPerPoll: 5,
+        minGapMs: 30000,
+        maxAgeMinutes: 1440,
+        allowUids: [],
+        onlyOwnVideos: true,
+      },
+    },
     scroll: { enabled: true, source: 'hot', keywords: '', numVideos: 10, readComments: true, commentsPerVideo: 20, readSubtitles: true, preferTags: '', avoidTags: '', reportDirectory: 'bilibili-reports' },
     schedule: { enabled: false, time: '09:00', timeZone: 'Asia/Shanghai', weekdays: [1, 2, 3, 4, 5, 6, 7] },
     notification: { channel: 'none', ownerUid: '', mentionName: '', bvid: '' },
@@ -62,7 +89,18 @@ export function validateConsoleConfig(value: unknown): ConsoleConfig {
   const root = object(value, ['version', 'connection', 'reply', 'scroll', 'schedule', 'notification', 'agent'], '配置')
   if (root.version !== 1) throw new ConsoleError('CONFIG_VERSION', '不支持的配置版本')
   const c = object(root.connection, ['url', 'ownerUids', 'pollMs', 'maxPolls'], '连接')
-  const r = object(root.reply, ['policy', 'maxLength', 'maxReplies', 'commentPolicy', 'commentMaxReplies', 'style'], '回复')
+  const r = object(root.reply, ['policy', 'maxLength', 'maxReplies', 'commentPolicy', 'commentMaxReplies', 'style', 'commentWatch'], '回复')
+  const w = r.commentWatch === undefined
+    ? {}
+    : object(r.commentWatch, ['kinds', 'pollMs', 'maxPerPoll', 'minGapMs', 'maxAgeMinutes', 'allowUids', 'onlyOwnVideos'], '通知监听')
+  const kindsRaw = w.kinds === undefined ? ['at', 'reply'] : w.kinds
+  if (!Array.isArray(kindsRaw) || !kindsRaw.length || kindsRaw.length > 2) {
+    throw new ConsoleError('CONFIG', '通知类型至少选择一个（at / reply）')
+  }
+  const kinds = [...new Set(kindsRaw.map(value => choice(value, ['at', 'reply'] as const, '通知类型')))]
+  const allowRaw = w.allowUids === undefined ? [] : w.allowUids
+  if (!Array.isArray(allowRaw) || allowRaw.length > 20) throw new ConsoleError('CONFIG', '评论者白名单最多 20 个')
+  const allowUids = [...new Set(allowRaw.map(value => uid(value, '评论者 UID')))]
   const s = object(root.scroll, ['enabled', 'source', 'keywords', 'numVideos', 'readComments', 'commentsPerVideo', 'readSubtitles', 'preferTags', 'avoidTags', 'reportDirectory'], '刷视频')
   const d = object(root.schedule, ['enabled', 'time', 'timeZone', 'weekdays'], '定时任务')
   const n = object(root.notification, ['channel', 'ownerUid', 'mentionName', 'bvid'], '通知')
@@ -94,7 +132,23 @@ export function validateConsoleConfig(value: unknown): ConsoleConfig {
   return {
     version: 1,
     connection: { url, ownerUids, pollMs: integer(c.pollMs, '轮询间隔', 6000, 2147483647), maxPolls: integer(c.maxPolls, '最大轮询次数', 0, 1000000) },
-    reply: { policy: choice(r.policy, ['off', 'owner', 'draft'] as const, '私信回复策略'), maxLength: integer(r.maxLength, '回复字数', 1, 300), maxReplies: integer(r.maxReplies, '最大回复次数', 0, 10000), commentPolicy: choice(r.commentPolicy, ['off', 'owner', 'draft'] as const, '评论回复策略'), commentMaxReplies: integer(r.commentMaxReplies, '评论最大回复次数', 0, 10000), style: text(r.style, '回复风格') },
+    reply: {
+      policy: choice(r.policy, ['off', 'owner', 'draft'] as const, '私信回复策略'),
+      maxLength: integer(r.maxLength, '回复字数', 1, 300),
+      maxReplies: integer(r.maxReplies, '最大回复次数', 0, 10000),
+      commentPolicy: choice(r.commentPolicy, ['off', 'owner', 'draft'] as const, '评论回复策略'),
+      commentMaxReplies: integer(r.commentMaxReplies, '评论最大回复次数', 0, 10000),
+      style: text(r.style, '回复风格'),
+      commentWatch: {
+        kinds,
+        pollMs: integer(w.pollMs === undefined ? 60000 : w.pollMs, '通知轮询间隔', 6000, 86400000),
+        maxPerPoll: integer(w.maxPerPoll === undefined ? 5 : w.maxPerPoll, '每轮通知数', 1, 50),
+        minGapMs: integer(w.minGapMs === undefined ? 30000 : w.minGapMs, '回复最小间隔', 0, 3600000),
+        maxAgeMinutes: integer(w.maxAgeMinutes === undefined ? 1440 : w.maxAgeMinutes, '通知有效期', 0, 10080),
+        allowUids,
+        onlyOwnVideos: boolean(w.onlyOwnVideos === undefined ? true : w.onlyOwnVideos, '仅自有视频'),
+      },
+    },
     scroll: { enabled: boolean(s.enabled, '刷视频开关'), source, keywords, numVideos: integer(s.numVideos, '视频数', 1, 50), readComments: boolean(s.readComments, '读取评论'), commentsPerVideo: integer(s.commentsPerVideo, '每视频评论数', 1, 100), readSubtitles: boolean(s.readSubtitles, '读取字幕'), preferTags: text(s.preferTags, '偏好'), avoidTags: text(s.avoidTags, '屏蔽'), reportDirectory: text(s.reportDirectory, '报告目录', 500) },
     schedule: { enabled: boolean(d.enabled, '定时开关'), time, timeZone, weekdays },
     notification: { channel, ownerUid, mentionName, bvid },

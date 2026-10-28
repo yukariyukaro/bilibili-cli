@@ -19,8 +19,10 @@ import type {
   BaselineOrder,
   BridgeState,
   Conversation,
+  NotifyCursor,
   Order,
   PendingEntry,
+  PendingTarget,
   SeenEntry,
 } from './types.mjs'
 
@@ -49,7 +51,13 @@ function corrupt(message: string): StateStoreError {
 }
 
 function emptyState(): BridgeState {
-  return { version: 1, conversations: {}, pending: [], seen: [] }
+  return {
+    version: 2,
+    conversations: {},
+    notifications: { at: null, reply: null },
+    pending: [],
+    seen: [],
+  }
 }
 
 function objectAt(value: unknown, where: string): Record<string, unknown> {
@@ -119,12 +127,69 @@ function validateSeenEntry(value: unknown, index: number): SeenEntry {
   return { id, at: typeof record.at === 'string' ? record.at : null }
 }
 
-function validatePendingEntry(value: unknown, index: number): PendingEntry {
+function validateTarget(value: unknown, where: string): PendingTarget | null {
+  if (value === null) return null
+  const record = objectAt(value, where)
+  const bvid = record.bvid
+  if (typeof bvid !== 'string' || !/^BV[0-9A-Za-z]{10}$/u.test(bvid)) throw corrupt(where + '.bvid 不是有效 BV 号')
+  const readPositive = (field: string): number | undefined => {
+    if (!hasOwn(record, field)) return undefined
+    const raw = record[field]
+    if (!isSafePositiveInteger(raw)) throw corrupt(where + '.' + field + ' 必须是正安全整数')
+    return raw
+  }
+  const rpid = readPositive('rpid')
+  const root = readPositive('root')
+  if (root !== undefined && rpid === undefined) throw corrupt(where + ' 给了 root 却没有 rpid')
+  return { bvid, ...(rpid === undefined ? {} : { rpid }), ...(root === undefined ? {} : { root }) }
+}
+
+function validateNotifyCursor(value: unknown, where: string): NotifyCursor | null {
+  if (value === null) return null
+  const record = objectAt(value, where)
+  for (const field of ['id', 'time', 'isEnd']) {
+    if (!hasOwn(record, field)) throw corrupt(where + ' 缺少字段 ' + field)
+  }
+  const id = record.id
+  if (id !== null && (typeof id !== 'string' || !/^\d+$/u.test(id))) {
+    throw corrupt(where + '.id 必须是非负整数字符串或 null')
+  }
+  const time = record.time
+  if (time !== null && !isSafeNonNegativeInteger(time)) throw corrupt(where + '.time 必须是非负安全整数或 null')
+  if (typeof record.isEnd !== 'boolean') throw corrupt(where + '.isEnd 必须是布尔值')
+  if (id === null && time === null && record.isEnd !== true) {
+    throw corrupt(where + ' 没有可比较的游标却没有标记 isEnd=true')
+  }
+  return { id: id === null ? null : BigInt(id).toString(), time, isEnd: record.isEnd }
+}
+
+function validateNotifications(value: unknown): { at: NotifyCursor | null; reply: NotifyCursor | null } {
+  const record = objectAt(value, 'notifications')
+  for (const field of ['at', 'reply']) {
+    if (!hasOwn(record, field)) throw corrupt('notifications 缺少字段 ' + field)
+  }
+  return {
+    at: validateNotifyCursor(record.at, 'notifications.at'),
+    reply: validateNotifyCursor(record.reply, 'notifications.reply'),
+  }
+}
+
+function validatePendingEntry(value: unknown, index: number, version: 1 | 2): PendingEntry {
   const where = 'pending[' + index + ']'
   const record = objectAt(value, where)
   for (const field of ['id', 'uid', 'name', 'content', 'seqno', 'timestamp', 'key', 'skipReason', 'created_at']) {
     if (!hasOwn(record, field)) throw corrupt(where + ' 缺少字段 ' + field)
   }
+  // v1 没有 surface/target：迁移时补 dm/null，不静默丢弃条目。
+  if (version === 2) {
+    for (const field of ['surface', 'target']) {
+      if (!hasOwn(record, field)) throw corrupt(where + ' 缺少字段 ' + field)
+    }
+  }
+  const surface = version === 1 ? 'dm' : record.surface
+  if (surface !== 'dm' && surface !== 'comment') throw corrupt(where + '.surface 必须是 dm 或 comment')
+  const target = version === 1 ? null : validateTarget(record.target, where + '.target')
+  if (surface === 'comment' && target === null) throw corrupt(where + ' 评论条目必须有 target')
   const id = record.id
   if (!isNonEmptyString(id)) throw corrupt(where + '.id 必须是非空字符串')
   const uid = record.uid
@@ -163,23 +228,29 @@ function validatePendingEntry(value: unknown, index: number): PendingEntry {
     key,
     skipReason,
     created_at: typeof createdAt === 'string' ? createdAt : null,
+    surface,
+    target,
   }
 }
 
 /**
- * state v1 严格校验。合法 JSON 但结构不完整也 fail closed，避免把无效
+ * state 严格校验。合法 JSON 但结构不完整也 fail closed，避免把无效
  * pending/seen/conversation 静默过滤后重新 baseline 并丢事件。
- * 兼容旧 demo 的 { seen: [...] }；使用 v1 字段时必须显式 version:1。
+ * 兼容旧 demo 的 { seen: [...] }；v1 可读取并迁移到 v2，使用字段时必须显式 version。
  */
 export function validateStateShape(value: unknown): asserts value is Record<string, unknown> {
   const record = objectAt(value, 'state')
   const hasVersion = hasOwn(record, 'version')
   const hasConversations = hasOwn(record, 'conversations')
   const hasPending = hasOwn(record, 'pending')
-  if (hasVersion && record.version !== 1) throw corrupt('state.version 仅支持 1')
-  if ((hasConversations || hasPending) && record.version !== 1) {
-    throw corrupt('state 使用 v1 字段时必须显式 version:1')
+  const hasNotifications = hasOwn(record, 'notifications')
+  const version = record.version
+  if (hasVersion && version !== 1 && version !== 2) throw corrupt('state.version 仅支持 1 或 2')
+  if (!hasVersion && (hasConversations || hasPending || hasNotifications)) {
+    throw corrupt('state 使用 v1/v2 字段时必须显式 version')
   }
+  if (version === 2 && !hasNotifications) throw corrupt('state.version=2 必须包含 notifications')
+  const layout: 1 | 2 = version === 2 ? 2 : 1
   if (hasConversations) {
     const conversations = objectAt(record.conversations, 'state.conversations')
     for (const [uid, conversation] of Object.entries(conversations)) validateConversation(conversation, uid)
@@ -187,9 +258,10 @@ export function validateStateShape(value: unknown): asserts value is Record<stri
   if (hasPending) {
     if (!Array.isArray(record.pending)) throw corrupt('state.pending 必须是数组')
     for (let index = 0; index < record.pending.length; index += 1) {
-      validatePendingEntry(record.pending[index], index)
+      validatePendingEntry(record.pending[index], index, layout)
     }
   }
+  if (hasNotifications) validateNotifications(record.notifications)
   if (hasOwn(record, 'seen')) {
     if (!Array.isArray(record.seen)) throw corrupt('state.seen 必须是数组')
     for (let index = 0; index < record.seen.length; index += 1) validateSeenEntry(record.seen[index], index)
@@ -205,6 +277,11 @@ export function validateStateShape(value: unknown): asserts value is Record<stri
 export function normalizeState(input: unknown): BridgeState {
   validateStateShape(input)
   const state = emptyState()
+  // v1 → v2 迁移：notifications 保持 null，pending 条目补 surface:'dm'/target:null。
+  const layout: 1 | 2 = input.version === 2 ? 2 : 1
+  if (layout === 2 && hasOwn(input, 'notifications')) {
+    state.notifications = validateNotifications(input.notifications)
+  }
 
   if (isPlainObject(input.conversations)) {
     for (const [uid, raw] of Object.entries(input.conversations)) {
@@ -215,7 +292,7 @@ export function normalizeState(input: unknown): BridgeState {
   if (Array.isArray(input.pending)) {
     const ids = new Set<string>()
     for (const raw of input.pending) {
-      const entry = validatePendingEntry(raw, state.pending.length)
+      const entry = validatePendingEntry(raw, state.pending.length, layout)
       if (ids.has(entry.id)) continue
       ids.add(entry.id)
       state.pending.push(entry)

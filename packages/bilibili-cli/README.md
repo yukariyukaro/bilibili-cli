@@ -1,6 +1,6 @@
 # 独立 B 站 CLI
 
-独立的 `bilibili` 2.1.0 命令行工具：B 站搜索、字幕、快照与官方 AI 总结、弹幕、UP 投稿、动态、收藏与合集、本人创作数据，及受控互动和 `bridge` 私信监听。运行时位于 `src/`（严格 TypeScript `.mts`），编译到 `dist/`（JavaScript ESM）；发布包已经预编译，**使用者不需要 TypeScript 工具链**。需要 Node.js 22+。B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供，不依赖插件宿主，也不启动 MCP 或 Python 后端。
+独立的 `bilibili` 2.3.0 命令行工具：B 站搜索、字幕、快照与官方 AI 总结、弹幕、UP 投稿、动态、收藏与合集、本人创作数据，及受控互动和 `bridge` 私信/评论通知监听。运行时位于 `src/`（严格 TypeScript `.mts`），编译到 `dist/`（JavaScript ESM）；发布包已经预编译，**使用者不需要 TypeScript 工具链**。需要 Node.js 22+。B 站接口由 npm 依赖 `@yukariyukaro/bilibili-api-ts` 提供，不依赖插件宿主，也不启动 MCP 或 Python 后端。
 
 2.1.0 在历史23条命令与4条 bridge 命令之外增加40条公开命令；本文说明当前能力，不代表已经发布或真实验收全部通过。2.x 公开契约仍是 `bilibili` 分组命令，旧平铺别名和 `skills cleanup` 不属于公开 CLI。本目录是 CLI 唯一源码，配套 Skill 文档位于仓库 `skills/bilibili-cli/`。
 

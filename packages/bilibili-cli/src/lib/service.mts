@@ -203,6 +203,11 @@ async function videoInfo(dir: string, params: Record<string, unknown>): Promise<
     title: data.title,
     description: data.desc,
     author: toRecord(data.owner).name,
+    // 归属校验（bridge 的 onlyOwnVideos）需要作者 UID，只有昵称无法判定。
+    owner: {
+      mid: nullishOr(toRecord(data.owner).mid, 0),
+      name: nullishOr(toRecord(data.owner).name, ''),
+    },
     duration: data.duration,
     pages: lengthOrZero(data.pages),
     tags: responseList(data.tag, 'tag')

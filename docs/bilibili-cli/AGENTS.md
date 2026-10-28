@@ -70,4 +70,5 @@ npm pack                # 源码打包前自动编译
 
 - [产品 README](../../packages/bilibili-cli/README.md)：产品使用与开发入口。
 - [CLI 契约](../../skills/bilibili-cli/references/cli-contract.md)：命令、输出与状态语义。
+- [Agent Skill 编写与演进规范](skill-authoring.md)、[Skill-only 真实只读评测协议](skill-eval.md) 与 [演进评测报告](skill-eval-results.md)：维护或改写 `skills/bilibili-cli/` 前必读。
 - [实施路线图](bridge实施路线图.md)：后续阶段及验收边界；计划不代表已经实现。

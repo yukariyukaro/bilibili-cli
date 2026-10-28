@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { errorMessage, isPlainObject, isSafePositiveInteger } from './guards.mjs'
 import { parseJsonLossless } from './json.mjs'
-import type { BridgeLogger } from './types.mjs'
+import type { BridgeLogger, NotifyCursorInput } from './types.mjs'
 
 function failure(code: string, message: string): CliBackendError {
   return new CliBackendError(code, message)
@@ -252,14 +252,38 @@ export class BilibiliCliBackend {
     return result.comments
   }
 
+  /**
+   * 通知游标可能超出安全整数：CLI 契约只接受安全整数，这时退化为「不带 id」，
+   * 由时间游标与本地 seen 去重兜底；宁可多扫一页，也不静默跳过通知。
+   */
+  private notifyCursorArgs(cursor: NotifyCursorInput): Record<string, unknown> {
+    const id = cursor.id === null ? 0 : Number(cursor.id)
+    if (!Number.isSafeInteger(id) || id < 0) return { cursorId: 0, cursorTime: cursor.time ?? 0 }
+    return { cursorId: id, cursorTime: cursor.time ?? 0 }
+  }
+
+  async inboxAt(cursor: NotifyCursorInput): Promise<unknown> {
+    return this.call('inbox', { kind: 'at', ...this.notifyCursorArgs(cursor) })
+  }
+
+  async inboxReply(cursor: NotifyCursorInput): Promise<unknown> {
+    return this.call('inbox', { kind: 'reply', ...this.notifyCursorArgs(cursor) })
+  }
+
+  /** 只读视频信息，用于「只回自己视频」的归属校验。 */
+  async videoInfo(bvid: string): Promise<unknown> {
+    return this.call('video info', { bvid })
+  }
+
   /** 真实评论走 CLI 的写入审计；dry-run 只预览，未知结果不重试。 */
   async postComment(
-    target: { bvid: string; rpid?: number },
+    target: { bvid: string; rpid?: number; root?: number },
     text: string,
     { confirm = false }: { confirm?: boolean } = {},
   ): Promise<unknown> {
     const base: Record<string, unknown> = { bvid: target.bvid, text }
     if (target.rpid !== undefined) base.rpid = target.rpid
+    if (target.root !== undefined) base.root = target.root
     if (this.env.BILIBILI_BRIDGE_DRY_RUN !== 'false') return this.call('comment create', { ...base, dryRun: true })
     if (confirm !== true) throw failure('CONFIRM_REQUIRED', '真实评论需要逐次确认')
     const result = await this.call('comment create', { ...base, confirm: true })
