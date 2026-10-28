@@ -21,3 +21,5 @@ bilibili-api-ts/
 .env.*
 !*.env.example
 release-publish/
+# 本地临时产物（抓网页、探接口、临时截图与源码解包），以下划线开头，不入库
+_*
